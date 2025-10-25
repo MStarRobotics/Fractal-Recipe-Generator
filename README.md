@@ -4,10 +4,9 @@
 
 # Fractal Recipe – Base Batches Builder Track Alpha
 
-Fractal Recipe is a retro-futuristic AI cooking companion that now anchors every synthesized recipe on **Base Sepolia** for the Base Batches Builder Track. The UI/UX remains pixel-perfect to the provided reference while fulfilling the onchain requirements (wallet connect, contract writes, cookbook reads, Basename resolution, and traceable transaction history).
+Fractal Recipe is a retro-futuristic AI cooking companion handcrafted by the team to anchor every synthesized recipe on **Base Sepolia** for the Base Batches Builder Track. The UI/UX remains pixel-perfect to the provided reference while fulfilling the onchain requirements (wallet connect, contract writes, cookbook reads, Basename resolution, and traceable transaction history).
 
 - Live demo (configure your own deployment): _TODO_
-- AI Studio preview: https://ai.studio/apps/drive/1Z32TEU6UvuU06ODxnpaVB2JUdqys7_PK
 
 ## Getting Started
 
@@ -39,7 +38,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:5173 (or the URL printed by Vite). Connect MetaMask, switch/add Base Sepolia when prompted, and synthesize a recipe to push an onchain record.
+Open [http://localhost:5173](http://localhost:5173) (or the URL printed by Vite). Connect MetaMask, switch/add Base Sepolia when prompted, and synthesize a recipe to push an onchain record.
 
 ## Onchain Architecture
 
@@ -52,15 +51,17 @@ Open http://localhost:5173 (or the URL printed by Vite). Connect MetaMask, switc
 
 ### Deployment Flow
 
-1. Compile and deploy the contract on Base Sepolia (Hardhat, Foundry, or Remix).
-   ```bash
-   # Example with Foundry (assuming forge is installed)
-   forge create --rpc-url https://sepolia.base.org --private-key <PRIVATE_KEY> contracts/FractalRecipeRegistry.sol:FractalRecipeRegistry
-   ```
-2. Verify the contract on [BaseScan (Sepolia)](https://sepolia.basescan.org/verifyContract) using the flattened Solidity source if required.
-3. Record the contract address in `.env.local` as `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS` (and optionally the deployment block).
-4. Run `npm run dev` locally and trigger `SYNTHESIZE RECIPE` to log the first onchain transaction (MetaMask will automatically prompt to add/switch chains).
-5. Save the resulting transaction hash for submission documentation; it is also persisted to localStorage (`fractalLastTx`).
+- **Step 1 – Deploy the registry:** Compile and deploy the contract on Base Sepolia (Hardhat, Foundry, or Remix).
+  - Example with Foundry (assuming `forge` is installed):
+
+    ```bash
+    forge create --rpc-url https://sepolia.base.org --private-key <PRIVATE_KEY> contracts/FractalRecipeRegistry.sol:FractalRecipeRegistry
+    ```
+
+- **Step 2 – Verify on BaseScan:** Submit the flattened source to [BaseScan (Sepolia)](https://sepolia.basescan.org/verifyContract) for verification.
+- **Step 3 – Wire up the frontend:** Record the contract address in `.env.local` as `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS` (and optionally the deployment block).
+- **Step 4 – Trigger an interaction:** Run `npm run dev` locally and use `SYNTHESIZE RECIPE` to log the first onchain transaction (MetaMask will automatically prompt to add/switch chains).
+- **Step 5 – Archive proof:** Keep the resulting transaction hash for submission documentation; it is also persisted to localStorage (`fractalLastTx`).
 
 ### Frontend Wallet Experience
 
