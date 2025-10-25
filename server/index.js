@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { randomBytes, randomInt } from 'node:crypto';
 import { verifyMessage } from 'viem';
@@ -11,6 +12,14 @@ import admin from 'firebase-admin';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
+
+// Rate limiter: max 20 requests per minute per IP for sensitive endpoints
+const apiRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,             // limit each IP to 20 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the RateLimit-* headers
+  legacyHeaders: false,  // Disable the X-RateLimit-* headers
+});
 const JWT_SECRET = process.env.JWT_SECRET ?? 'change-this-secret-before-production';
 const TOKEN_TTL_SECONDS = Number(process.env.JWT_TTL_SECONDS ?? 3600);
 const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
@@ -539,7 +548,7 @@ app.post('/auth/nonce', rateLimit({ windowMs: 60_000, limit: 30 }), (req, res) =
   }
 });
 
-app.post('/auth/verify', rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
+app.post('/auth/verify', apiRateLimiter, async (req, res) => {
   try {
     const { address, signature } = req.body ?? {};
     if (!address || !signature) {
@@ -593,7 +602,7 @@ app.post('/auth/verify', rateLimit({ windowMs: 60_000, limit: 20 }), async (req,
   }
 });
 
-app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
+app.post('/auth/link', authenticateRequest, apiRateLimiter, async (req, res) => {
   try {
     const { googleId, email, displayName, googleAccessToken } = req.body ?? {};
 
