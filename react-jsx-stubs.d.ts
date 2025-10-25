@@ -2,8 +2,21 @@
 // If @types/react is available, TypeScript will prefer it and these stubs will be ignored.
 
 declare namespace JSX {
+  interface IntrinsicAttributes {
+    key?: string | number | null;
+    ref?: unknown;
+  }
+
   interface IntrinsicElements {
     [elemName: string]: any;
+  }
+
+  interface Element {}
+  interface ElementClass {
+    render?: unknown;
+  }
+  interface ElementChildrenAttribute {
+    children: unknown;
   }
 }
 

@@ -1039,9 +1039,10 @@ const App: React.FC = () => {
           <select 
             id="language-select"
             value={formData.language} 
-            onChange={(e) => {
+            onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
               playSound();
-              setFormData(p => ({...p, language: e.target.value as typeof LANGUAGES[number] }));
+              const nextLanguage = event.target.value as (typeof LANGUAGES)[number];
+              setFormData((previous) => ({ ...previous, language: nextLanguage }));
             }}
             className="arcade-select"
           >

@@ -198,6 +198,64 @@
       .fractal-branch .cube-face { transition: box-shadow 0.2s ease-out, border-color 0.2s ease-out; }
       .fractal-branch:hover .cube { transform: scale(1.1); }
       .fractal-branch:hover .cube-face { border-color: #0ff; box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.8), 0 0 10px rgba(0, 255, 255, 0.5); }
+
+      /* Generated branch cube variants */
+      .branch-generated { --branch-transform: translate3d(0, 0, 0); --branch-scale: 0; opacity: 0; transform: var(--branch-transform) scale(var(--branch-scale)); }
+      .branch-entering { --branch-scale: 0; opacity: 0; }
+      .branch-entered { --branch-scale: 1; opacity: 1; }
+      .branch-generated { transition: transform 0.8s ease-out, opacity 0.5s ease-out; }
+      .branch-variant-a { --branch-transform: translate3d(220px, -120px, 40px) rotateX(-18deg) rotateY(32deg); }
+      .branch-variant-b { --branch-transform: translate3d(-210px, 90px, -60px) rotateX(24deg) rotateY(-28deg); }
+      .branch-variant-c { --branch-transform: translate3d(160px, 140px, -30px) rotateX(18deg) rotateY(60deg); }
+      .branch-variant-d { --branch-transform: translate3d(-170px, -110px, 70px) rotateX(-22deg) rotateY(-12deg); }
+      .branch-variant-e { --branch-transform: translate3d(0px, 200px, 60px) rotateX(35deg) rotateY(0deg); }
+      .branch-variant-f { --branch-transform: translate3d(0px, -220px, -40px) rotateX(-30deg) rotateY(15deg); }
+      .branch-variant-g { --branch-transform: translate3d(200px, 0px, 80px) rotateX(10deg) rotateY(50deg); }
+      .branch-variant-h { --branch-transform: translate3d(-200px, 0px, -80px) rotateX(-12deg) rotateY(-45deg); }
+
+      .branch-cube { width: 80px; height: 80px; animation: rotateCube var(--branch-rotation-duration, 26s) infinite linear; }
+      .branch-cube .cube-face { width: 80px; height: 80px; }
+      .branch-cube .cube-face-inner { padding: 0.5rem; }
+      .branch-rotation-slow { --branch-rotation-duration: 32s; }
+      .branch-rotation-medium { --branch-rotation-duration: 26s; }
+      .branch-rotation-fast { --branch-rotation-duration: 20s; }
+
+      .branch-cube .cube-face.front { transform: rotateY(0deg) translateZ(40px); }
+      .branch-cube .cube-face.back { transform: rotateY(180deg) translateZ(40px); }
+      .branch-cube .cube-face.right { transform: rotateY(90deg) translateZ(40px); }
+      .branch-cube .cube-face.left { transform: rotateY(-90deg) translateZ(40px); }
+      .branch-cube .cube-face.top { transform: rotateX(90deg) translateZ(40px); }
+      .branch-cube .cube-face.bottom { transform: rotateX(-90deg) translateZ(40px); }
+
+      .cube-delete-button { position: static !important; top: auto !important; right: auto !important; transform: none !important; }
+
+      .branch-recycle-container { display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; transform-style: preserve-3d; }
+      .reverse-spin { animation-direction: reverse; animation-duration: 15s; }
+      .recycle-letter-cloud { position: absolute; inset: 0; }
+      .recycle-letter { position: absolute; top: 50%; left: 50%; --offset-x: 0px; --offset-y: 0px; --delay-step: 0; transform: translate(calc(-50% + var(--offset-x)), calc(-50% + var(--offset-y))); animation: recycle-pulse 6s ease-in-out infinite; animation-delay: calc(var(--delay-step) * 0.2s); }
+      .recycle-letter-inner { display: inline-block; }
+
+      @keyframes recycle-pulse {
+        0% { opacity: 0; transform: translate(calc(-50% + var(--offset-x)), calc(-50% + var(--offset-y))) scale(0.6); }
+        25% { opacity: 1; }
+        60% { opacity: 1; }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--offset-x) * 1.2), calc(-50% + var(--offset-y) * 1.1)) scale(0.5); }
+      }
+
+      .recycle-letter-0 { --offset-x: -60px; --offset-y: 65px; --delay-step: 0; }
+      .recycle-letter-1 { --offset-x: -45px; --offset-y: 70px; --delay-step: 0.5; }
+      .recycle-letter-2 { --offset-x: -30px; --offset-y: 75px; --delay-step: 1; }
+      .recycle-letter-3 { --offset-x: -15px; --offset-y: 80px; --delay-step: 1.5; }
+      .recycle-letter-4 { --offset-x: 0px; --offset-y: 82px; --delay-step: 2; }
+      .recycle-letter-5 { --offset-x: 15px; --offset-y: 78px; --delay-step: 2.5; }
+      .recycle-letter-6 { --offset-x: 30px; --offset-y: 73px; --delay-step: 3; }
+      .recycle-letter-7 { --offset-x: 45px; --offset-y: 68px; --delay-step: 3.5; }
+      .recycle-letter-8 { --offset-x: 60px; --offset-y: 62px; --delay-step: 4; }
+      .recycle-letter-9 { --offset-x: -50px; --offset-y: 95px; --delay-step: 4.5; }
+      .recycle-letter-10 { --offset-x: -15px; --offset-y: 100px; --delay-step: 5; }
+      .recycle-letter-11 { --offset-x: 20px; --offset-y: 98px; --delay-step: 5.5; }
+  .recycle-letter-12 { --offset-x: 55px; --offset-y: 92px; --delay-step: 6; }
+  .recycle-letter-13 { --offset-x: 10px; --offset-y: 110px; --delay-step: 6.5; }
       .fractal-input { font-family: 'Press Start 2P', cursive; text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.7); border: 1px solid #0F0; color: #0F0; font-size: 0.7rem; width: 100%; transition: all 0.2s; }
       .fractal-input::placeholder { color: rgba(0, 255, 0, 0.5); }
       .fractal-input:focus { outline: none; border-color: #0ff; box-shadow: 0 0 5px rgba(0, 255, 255, 0.6); }

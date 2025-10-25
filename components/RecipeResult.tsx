@@ -56,6 +56,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   const [transcribedText, setTranscribedText] = React.useState<string | null>(null);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const [selectedTheme, setSelectedTheme] = React.useState<string>('None');
+  const uploadedImageUrl = uploadedImage?.url ?? null;
+  const safeImageSrc = React.useMemo(
+    () => getSafeImageSrc(uploadedImageUrl ?? imageUrl),
+    [uploadedImageUrl, imageUrl]
+  );
 
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -321,26 +326,32 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     const text = `Check out this recipe for "${recipe.dishName}" I generated with the Fractal Recipe Generator! #AI #Gemini`;
 
     if (platform === 'twitter') {
-      const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-      window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+      const shareUrl = new URL('https://twitter.com/intent/tweet');
+      shareUrl.searchParams.set('url', url);
+      shareUrl.searchParams.set('text', text);
+      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
       return;
     }
 
     if (platform === 'facebook') {
-      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-      window.open(facebookUrl, '_blank', 'noopener,noreferrer');
+      const shareUrl = new URL('https://www.facebook.com/sharer/sharer.php');
+      shareUrl.searchParams.set('u', url);
+      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
       return;
     }
 
     if (platform === 'copy') {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopyStatus('LINK COPIED!');
-        setTimeout(() => setCopyStatus(''), 2000);
-      }).catch(err => {
-        console.error("Failed to copy link: ", err);
-        setCopyStatus('COPY FAILED');
-        setTimeout(() => setCopyStatus(''), 2000);
-      });
+      navigator.clipboard
+        .writeText(url)
+        .then(() => {
+          setCopyStatus('LINK COPIED!');
+          setTimeout(() => setCopyStatus(''), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy link: ', err);
+          setCopyStatus('COPY FAILED');
+          setTimeout(() => setCopyStatus(''), 2000);
+        });
     }
   };
   
@@ -450,7 +461,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                            type="range" min="0" max="1" step="0.05"
                            value={volume}
                            onChange={handleVolumeChange}
-                           onClick={(e) => e.stopPropagation()}
+                           onClick={(event: React.MouseEvent<HTMLInputElement>) => event.stopPropagation()}
                            className="volume-slider"
                   aria-label="Video and audio volume"
                         />
@@ -458,11 +469,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                 </div>
             ) : (
                 <>
-                  {(() => { const src = getSafeImageSrc(uploadedImage?.url ?? imageUrl); return src ? (
-                    <img src={src} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
+                  {safeImageSrc ? (
+                    <img src={safeImageSrc} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" loading="lazy" />
                   ) : (
                     <div className="w-full aspect-square grid place-items-center border border-green-800 bg-black/40 text-green-400">NO IMAGE</div>
-                  ); })()}
+                  )}
                    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
                       <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
                       <div className="flex items-center gap-2">
