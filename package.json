@@ -6,14 +6,20 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/index.js"
   },
   "dependencies": {
+    "@coinbase/onchainkit": "^0.38.15",
+    "@google/genai": "^1.24.0",
+    "@tanstack/react-query": "^5.62.8",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "firebase": "^12.4.0",
+    "firebase-admin": "^13.5.0",
+    "jsonwebtoken": "^9.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@google/genai": "^1.24.0",
-    "@coinbase/onchainkit": "^0.38.15",
-    "@tanstack/react-query": "^5.62.8",
     "viem": "^2.9.20",
     "wagmi": "^2.13.3"
   },

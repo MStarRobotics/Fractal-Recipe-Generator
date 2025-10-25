@@ -69,6 +69,27 @@ cp .env.example .env.local
 | `VITE_BASE_RPC_URL` | Base Sepolia RPC URL (defaults to `https://sepolia.base.org`). Alternate RPCs can be added here. |
 | `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS` | Deployed `FractalRecipeRegistry` contract address on Base Sepolia. |
 | `VITE_FRACTAL_RECIPE_DEPLOY_BLOCK` | (Optional) Block height where the registry was deployed. Speeds up event log queries. |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key for the project that issues Google logins. |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase authentication domain (e.g. `your-app.firebaseapp.com`). |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID. |
+| `VITE_FIREBASE_STORAGE_BUCKET` | (Optional) Firebase storage bucket. Required if hosting assets. |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | (Optional) Messaging sender ID. |
+| `VITE_FIREBASE_APP_ID` | Firebase Web App ID. |
+| `VITE_FIREBASE_MEASUREMENT_ID` | (Optional) Measurement ID if Google Analytics is enabled. |
+| `VITE_GOOGLE_OAUTH_CLIENT_ID` | Google OAuth Web client ID (used when Firebase is not configured). |
+
+For the Express authentication server, create a `.env` file in the `server/` directory with the following keys:
+
+| Server Variable | Description |
+| --- | --- |
+| `PORT` | (Optional) Overrides the default `4000` port for the auth server. |
+| `JWT_SECRET` | Secret used to sign the session JWTs issued to the frontend. |
+| `FIREBASE_PROJECT_ID` | Firebase project ID for Admin SDK usage. |
+| `FIREBASE_CLIENT_EMAIL` | Service account client email with permission to mint custom tokens. |
+| `FIREBASE_PRIVATE_KEY` | The service account private key. Store it with escaped newlines (`\n`). |
+| `GOOGLE_OAUTH_CLIENT_ID` | (Optional) Web client ID used to validate Google access tokens on the server. |
+
+> **Note:** The same Firebase project powers both the browser SDK (Google sign-in) and the server-side Admin SDK (custom tokens for MetaMask sessions). Ensure the service account belongs to this project.
 
 ### 4. Run locally
 
@@ -85,6 +106,24 @@ npm run build
 ```
 
 The built files will be in the `dist/` directory, ready for deployment.
+
+### 6. Run the combined auth server (optional but recommended)
+
+The MetaMask signature flow now mints Firebase custom tokens so that wallet sessions and Google accounts live in the same Firebase Authentication tenant. Launch the server in a separate terminal after configuring the environment variables above:
+
+```bash
+npm run server
+```
+
+By default the server listens on `http://localhost:4000`; point `VITE_AUTH_API_URL` to this address when running locally.
+
+## Firebase + MetaMask Sign-In
+
+- **Google Sign-In (Firebase client SDK):** Clicking **SIGN IN GOOGLE** opens the Firebase popup. When successful, the active Firebase user is displayed and can be linked to the wallet.
+- **MetaMask SIWE:** Wallet connections still request a nonce, perform a personal signature, and exchange it for a JWT. When Firebase Admin credentials are present, the server also returns a Firebase custom token so the wallet session is registered with the same Firebase project.
+- **Account Linking:** With both sessions active, **LINK GOOGLE ACCOUNT** calls the auth server to link the Firebase user ID to the wallet. The response includes a fresh JWT and Firebase custom token to keep both states aligned.
+- **Combined UX:** Status badges in the top-right panel reflect MetaMask and Firebase auth states independently, giving a clear example of how both auth providers co-exist.
+- **No Firebase?** Provide `VITE_GOOGLE_OAUTH_CLIENT_ID` (from the Google Cloud console) and the app automatically falls back to Google Identity Services for pop-up sign-in. Remember to register `http://localhost:5173` (the default Vite dev origin) and any deployed origins under *Authorized JavaScript origins* in the Google OAuth client.
 
 ## Onchain Architecture
 

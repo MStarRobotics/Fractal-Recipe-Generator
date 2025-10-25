@@ -4,10 +4,15 @@ import FractalCube from './components/FractalCube';
 import RecipeResult from './components/RecipeResult';
 import SavedRecipesModal from './components/SavedRecipesModal';
 import { formatEther, type Address } from 'viem';
-import { RecipeFormData, SavedRecipe, LoadingState } from './types';
+import { RecipeFormData, SavedRecipe, LoadingState, AuthProfile } from './types';
 import { generateRecipe, generateImageForRecipe } from './services/geminiService';
-import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES, THEMATIC_BACKGROUNDS } from './constants';
+import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES } from './constants';
 import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename, fetchMembershipPrice, checkLifetimeMembership, purchaseLifetimeMembership, DEFAULT_MEMBERSHIP_PRICE_WEI } from './services/baseRegistry';
+import { clearPersistedToken, fetchAuthenticatedProfile, isMetaMaskAvailable, linkWalletToGoogleAccount, persistAuthToken, requestNonce, retrievePersistedToken, signMessageWithWallet, verifySignature, logout as logoutSession } from './services/authService';
+import type { User } from 'firebase/auth';
+import { firebaseSignOut, isFirebaseReady, signInWithFirebaseCustomToken, signInWithGooglePopup, subscribeToFirebaseAuth } from './services/firebaseClient';
+import type { GoogleIdentityProfile } from './services/googleIdentity';
+import { revokeGoogleIdentityToken, signInWithGoogleIdentity } from './services/googleIdentity';
 
 const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed' | 'Neutral' | 'Unknown' => {
   // Clean text of characters that are common across many scripts
@@ -86,6 +91,181 @@ const App: React.FC = () => {
   const [membershipStatus, setMembershipStatus] = React.useState<string | null>(null);
   const [membershipError, setMembershipError] = React.useState<string | null>(null);
   const [membershipTxHash, setMembershipTxHash] = React.useState<string | null>(null);
+  const [authToken, setAuthToken] = React.useState<string | null>(null);
+  const [authStatus, setAuthStatus] = React.useState<string | null>(null);
+  const [authProfile, setAuthProfile] = React.useState<AuthProfile | null>(null);
+  const [linkedGoogleId, setLinkedGoogleId] = React.useState<string | null>(null);
+  const [isMetamaskDetected, setIsMetamaskDetected] = React.useState(false);
+  const [firebaseUser, setFirebaseUser] = React.useState<User | null>(null);
+  const [googleAuthStatus, setGoogleAuthStatus] = React.useState<string | null>(null);
+  const [googleIdentityProfile, setGoogleIdentityProfile] = React.useState<GoogleIdentityProfile | null>(null);
+  const lastLinkedGoogleIdentifierRef = React.useRef<string | null>(null);
+
+  const clearAuthState = React.useCallback(() => {
+    setAuthToken(null);
+    setAuthProfile(null);
+    setLinkedGoogleId(null);
+    setGoogleIdentityProfile(null);
+    clearPersistedToken();
+  }, []);
+
+  const detectProviderAvailability = React.useCallback(() => {
+    setIsMetamaskDetected(isMetaMaskAvailable());
+  }, []);
+
+  const linkGoogleAccountToWallet = React.useCallback(
+    async ({ firebaseUser: firebaseProfile, identity, tokenOverride }: { firebaseUser?: User; identity?: GoogleIdentityProfile; tokenOverride?: string }) => {
+      const activeToken = tokenOverride ?? authToken;
+      if (!activeToken) {
+        setAuthStatus('SIGN IN WITH WALLET FIRST');
+        return;
+      }
+
+      const providerId = firebaseProfile?.uid ?? identity?.googleId ?? null;
+      if (!providerId) {
+        setGoogleAuthStatus('GOOGLE SIGN-IN REQUIRED');
+        return;
+      }
+
+      if (linkedGoogleId && linkedGoogleId === providerId) {
+        setGoogleAuthStatus('GOOGLE ACCOUNT ALREADY LINKED');
+        return;
+      }
+
+      if (!tokenOverride && lastLinkedGoogleIdentifierRef.current === providerId) {
+        return;
+      }
+
+      lastLinkedGoogleIdentifierRef.current = providerId;
+
+      try {
+        const linkPayload = firebaseProfile
+          ? {
+              googleId: firebaseProfile.uid,
+              email: firebaseProfile.email ?? undefined,
+              displayName: firebaseProfile.displayName ?? undefined,
+              provider: 'firebase' as const,
+            }
+          : identity
+          ? {
+              googleId: identity.googleId,
+              email: identity.email ?? undefined,
+              displayName: identity.displayName ?? undefined,
+              googleAccessToken: identity.accessToken,
+              provider: 'google-identity' as const,
+            }
+          : null;
+
+        if (!linkPayload) {
+          setGoogleAuthStatus('GOOGLE SIGN-IN REQUIRED');
+          return;
+        }
+
+        const profile = await linkWalletToGoogleAccount(activeToken, linkPayload);
+
+        persistAuthToken(profile.token);
+        setAuthToken(profile.token);
+        setLinkedGoogleId(profile.linkedGoogleId ?? null);
+        setAuthProfile({
+          address: profile.address,
+          linkedGoogleId: profile.linkedGoogleId ?? null,
+          wallets: profile.wallets,
+          email: profile.email ?? null,
+          displayName: profile.displayName ?? null,
+        });
+
+        if (profile.firebaseCustomToken) {
+          try {
+            await signInWithFirebaseCustomToken(profile.firebaseCustomToken);
+            setGoogleAuthStatus('GOOGLE ACCOUNT LINKED WITH WALLET');
+          } catch (firebaseError) {
+            console.error('Failed to activate Firebase custom token', firebaseError);
+            setGoogleAuthStatus('GOOGLE LINKED, FIREBASE TOKEN FAILED');
+          }
+        } else {
+          setGoogleAuthStatus('GOOGLE ACCOUNT LINKED');
+        }
+
+        setAuthStatus('ACCOUNTS LINKED');
+      } catch (error) {
+        lastLinkedGoogleIdentifierRef.current = null;
+        const message = error instanceof Error ? error.message.toUpperCase() : 'LINKING FAILED';
+        setGoogleAuthStatus(message);
+        setAuthStatus(message);
+        console.error('Failed to link Google account', error);
+      }
+    },
+    [authToken, linkedGoogleId]
+  );
+
+  const handleSignInWithMetamask = React.useCallback(async (address: Address): Promise<string | null> => {
+    const normalizedAddress = (address.toLowerCase() as Address);
+    if (authProfile?.address === normalizedAddress && authToken) {
+      return authToken;
+    }
+
+    detectProviderAvailability();
+
+    if (!isMetaMaskAvailable()) {
+      setAuthStatus('METAMASK EXTENSION REQUIRED');
+      return null;
+    }
+
+    setAuthStatus('REQUESTING SIGNATURE...');
+
+    try {
+      const { message } = await requestNonce(normalizedAddress);
+      const signature = await signMessageWithWallet(message, normalizedAddress);
+      const verification = await verifySignature(normalizedAddress, signature);
+
+      persistAuthToken(verification.token);
+      setAuthToken(verification.token);
+      setLinkedGoogleId(verification.linkedGoogleId ?? null);
+      setAuthStatus(verification.linkedGoogleId ? 'SIGNED IN (LINKED ACCOUNT)' : 'SIGNED IN WITH WALLET');
+
+      if (verification.firebaseCustomToken) {
+        try {
+          await signInWithFirebaseCustomToken(verification.firebaseCustomToken);
+          setGoogleAuthStatus('WALLET SIGNED IN WITH FIREBASE');
+        } catch (firebaseError) {
+          console.error('Failed to activate Firebase session for wallet login', firebaseError);
+          setGoogleAuthStatus('FIREBASE SYNC FAILED');
+        }
+      }
+
+      try {
+        const profile = await fetchAuthenticatedProfile(verification.token);
+        setAuthProfile(profile);
+      } catch (profileError) {
+        console.warn('Failed to load authenticated profile', profileError);
+        setAuthProfile({
+          address: normalizedAddress,
+          linkedGoogleId: verification.linkedGoogleId ?? null,
+          wallets: [normalizedAddress],
+        });
+      }
+
+      if (firebaseUser && !verification.linkedGoogleId) {
+        await linkGoogleAccountToWallet({ firebaseUser, tokenOverride: verification.token });
+      } else if (googleIdentityProfile && !verification.linkedGoogleId) {
+        await linkGoogleAccountToWallet({ identity: googleIdentityProfile, tokenOverride: verification.token });
+      }
+
+      return verification.token;
+    } catch (error) {
+      clearAuthState();
+      const code = (error as { code?: number })?.code;
+      let message = 'SIGNATURE FAILED';
+      if (code === 4001) {
+        message = 'SIGNATURE REJECTED';
+      } else if (error instanceof Error && error.message) {
+        message = error.message.toUpperCase();
+      }
+      setAuthStatus(message);
+      console.warn('MetaMask sign-in failed', error);
+      return null;
+    }
+  }, [authProfile, authToken, clearAuthState, detectProviderAvailability, firebaseUser, googleIdentityProfile, linkGoogleAccountToWallet]);
 
   const refreshMembershipStatus = React.useCallback(async (address: Address): Promise<boolean> => {
     setIsMembershipLoading(true);
@@ -137,6 +317,94 @@ const App: React.FC = () => {
   }, [walletAddress, connectWalletFlow, refreshMembershipStatus, isLifetimeMember]);
   const [lastTxHash, setLastTxHash] = React.useState<string | null>(null);
   const [isWalletBusy, setIsWalletBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeToFirebaseAuth((user) => {
+      setFirebaseUser(user);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    detectProviderAvailability();
+    const globalWindow =
+      typeof globalThis === 'object' &&
+      'window' in globalThis &&
+      globalThis.window
+        ? (globalThis.window as Window)
+        : undefined;
+
+    if (!globalWindow) {
+      return undefined;
+    }
+
+    const handleFocus = () => detectProviderAvailability();
+    const handleEthereumInitialized = () => detectProviderAvailability();
+    globalWindow.addEventListener('focus', handleFocus);
+    globalWindow.addEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
+    const timer = globalThis.setTimeout(() => detectProviderAvailability(), 1500);
+
+    return () => {
+      globalWindow.removeEventListener('focus', handleFocus);
+      globalWindow.removeEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
+      globalThis.clearTimeout(timer);
+    };
+  }, [detectProviderAvailability]);
+
+  React.useEffect(() => {
+    const token = retrievePersistedToken();
+    if (!token) {
+      return;
+    }
+
+    setAuthToken(token);
+    fetchAuthenticatedProfile(token)
+      .then((profile) => {
+        setAuthProfile(profile);
+        setLinkedGoogleId(profile.linkedGoogleId ?? null);
+        setAuthStatus('SESSION RESTORED');
+      })
+      .catch((error) => {
+        console.warn('Failed to restore auth session', error);
+        clearAuthState();
+      });
+  }, [clearAuthState]);
+
+  React.useEffect(() => {
+    if (!authStatus) {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => setAuthStatus(null), 6000);
+    return () => {
+      globalThis.clearTimeout(timeout);
+    };
+  }, [authStatus]);
+
+  React.useEffect(() => {
+    if (!googleAuthStatus) {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => setGoogleAuthStatus(null), 6000);
+    return () => {
+      globalThis.clearTimeout(timeout);
+    };
+  }, [googleAuthStatus]);
+
+  React.useEffect(() => {
+    if (!walletAddress) {
+      if (authToken) {
+        void logoutSession(authToken);
+      }
+      clearAuthState();
+      return;
+    }
+
+    if (!authToken) {
+      handleSignInWithMetamask(walletAddress).catch(() => undefined);
+    }
+  }, [walletAddress, authToken, handleSignInWithMetamask, clearAuthState]);
 
   React.useEffect(() => {
     try {
@@ -256,16 +524,27 @@ const App: React.FC = () => {
   }, [walletAddress, refreshMembershipStatus]);
 
   React.useEffect(() => {
-    const globalWindow = typeof globalThis === 'object'
-      ? (globalThis as Window & { ethereum?: { on?: (...args: unknown[]) => void; removeListener?: (...args: unknown[]) => void } })
-      : undefined;
+    const globalWindow =
+      typeof globalThis === 'object' &&
+      'window' in globalThis &&
+      globalThis.window
+        ? (globalThis.window as Window & {
+            ethereum?: { on?: (...args: unknown[]) => void; removeListener?: (...args: unknown[]) => void };
+          })
+        : undefined;
 
     const provider = globalWindow?.ethereum;
     if (!provider?.on) {
-      return;
+      return undefined;
     }
 
     const handleAccountsChanged = (accounts: string[]) => {
+      detectProviderAvailability();
+      if (authToken) {
+        void logoutSession(authToken);
+      }
+      clearAuthState();
+
       if (!accounts.length) {
         setWalletAddress(null);
         setWalletName(null);
@@ -275,16 +554,19 @@ const App: React.FC = () => {
         setMembershipTxHash(null);
         return;
       }
-      setWalletAddress(accounts[0] as Address);
-      setOnchainStatus(`CONNECTED: ${shortenAddress(accounts[0] as Address)}`);
+
+      const nextAddress = accounts[0] as Address;
+      setWalletAddress(nextAddress);
+      setOnchainStatus(`CONNECTED: ${shortenAddress(nextAddress)}`);
       setMembershipStatus('CHECKING MEMBERSHIP...');
+      handleSignInWithMetamask(nextAddress).catch(() => undefined);
     };
 
     provider.on('accountsChanged', handleAccountsChanged);
     return () => {
       provider.removeListener?.('accountsChanged', handleAccountsChanged);
     };
-  }, []);
+  }, [authToken, clearAuthState, detectProviderAvailability, handleSignInWithMetamask]);
 
   React.useEffect(() => {
     if (!onchainStatus) {
@@ -308,6 +590,123 @@ const App: React.FC = () => {
       console.error(`Error playing sound (${soundId}): ${err.message}`);
     });
   }, []);
+
+  const handleWalletButtonClick = React.useCallback(async () => {
+    detectProviderAvailability();
+    playSound();
+
+    if (!isMetaMaskAvailable()) {
+      setAuthStatus('METAMASK EXTENSION REQUIRED');
+      return;
+    }
+
+    try {
+      const address = await connectWalletFlow();
+      const token = await handleSignInWithMetamask(address);
+      if (!token) {
+        return;
+      }
+
+      if (!linkedGoogleId && firebaseUser) {
+        await linkGoogleAccountToWallet({ firebaseUser, tokenOverride: token });
+      } else if (!linkedGoogleId && googleIdentityProfile) {
+        await linkGoogleAccountToWallet({ identity: googleIdentityProfile, tokenOverride: token });
+      }
+    } catch (error) {
+      console.warn('Wallet connect or sign-in failed', error);
+    }
+  }, [connectWalletFlow, detectProviderAvailability, googleIdentityProfile, handleSignInWithMetamask, linkGoogleAccountToWallet, linkedGoogleId, playSound, firebaseUser]);
+
+  const handleGoogleAuthToggle = React.useCallback(async () => {
+    playSound();
+
+    if (isFirebaseReady()) {
+      try {
+        if (firebaseUser) {
+          await firebaseSignOut();
+          setGoogleAuthStatus('GOOGLE SIGNED OUT');
+          return;
+        }
+
+        const credential = await signInWithGooglePopup();
+        const descriptor = credential.user.email ?? credential.user.displayName ?? credential.user.uid;
+        setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
+        if (authToken) {
+          await linkGoogleAccountToWallet({ firebaseUser: credential.user });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toUpperCase() : 'GOOGLE SIGN-IN FAILED';
+        setGoogleAuthStatus(message);
+        console.error('Google authentication failed', error);
+      }
+      return;
+    }
+
+    try {
+      if (googleIdentityProfile) {
+        await revokeGoogleIdentityToken(googleIdentityProfile.accessToken);
+        setGoogleIdentityProfile(null);
+        setGoogleAuthStatus('GOOGLE SIGNED OUT');
+        return;
+      }
+
+      const identity = await signInWithGoogleIdentity();
+      setGoogleIdentityProfile(identity);
+      const descriptor = identity.email ?? identity.displayName ?? identity.googleId;
+      setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
+      if (authToken) {
+        await linkGoogleAccountToWallet({ identity });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toUpperCase() : 'GOOGLE SIGN-IN FAILED';
+      setGoogleAuthStatus(message);
+      console.error('Google authentication failed', error);
+    }
+  }, [authToken, firebaseUser, googleIdentityProfile, linkGoogleAccountToWallet, playSound]);
+
+  const handleLinkGoogleAccount = React.useCallback(async () => {
+    playSound();
+
+    if (!authToken) {
+      setAuthStatus('SIGN IN WITH WALLET FIRST');
+      return;
+    }
+
+    if (isFirebaseReady()) {
+      try {
+        if (!firebaseUser) {
+          const credential = await signInWithGooglePopup();
+          const descriptor = credential.user.email ?? credential.user.displayName ?? credential.user.uid;
+          setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
+          await linkGoogleAccountToWallet({ firebaseUser: credential.user });
+          return;
+        }
+
+        await linkGoogleAccountToWallet({ firebaseUser });
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toUpperCase() : 'GOOGLE LINK FAILED';
+        setGoogleAuthStatus(message);
+        console.error('Failed to link Google account', error);
+      }
+      return;
+    }
+
+    try {
+      let identity = googleIdentityProfile;
+      if (!identity) {
+        identity = await signInWithGoogleIdentity();
+        setGoogleIdentityProfile(identity);
+        const descriptor = identity.email ?? identity.displayName ?? identity.googleId;
+        setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
+      }
+
+      await linkGoogleAccountToWallet({ identity });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toUpperCase() : 'GOOGLE LINK FAILED';
+      setGoogleAuthStatus(message);
+      console.error('Failed to link Google account', error);
+    }
+  }, [authToken, firebaseUser, googleIdentityProfile, linkGoogleAccountToWallet, playSound]);
 
   const handlePurchaseMembership = React.useCallback(async () => {
     let activeAddress: Address;
@@ -390,8 +789,8 @@ const App: React.FC = () => {
     let activeAddress: Address;
     try {
       activeAddress = await ensureWalletConnection();
-    } catch (walletErr) {
-      console.error('Wallet connection failed', walletErr);
+    } catch (error_) {
+      console.error('Wallet connection failed', error_);
       return;
     }
 
@@ -427,9 +826,9 @@ const App: React.FC = () => {
         const txHash = await recordRecipeOnchain(activeAddress, resultPayload);
         setLastTxHash(txHash);
         setOnchainStatus('RECIPE ANCHORED ON BASE SEPOLIA');
-      } catch (chainErr) {
-        console.error('Failed to record recipe onchain', chainErr);
-        const message = chainErr instanceof Error ? chainErr.message : 'Failed to record recipe onchain.';
+        } catch (error_) {
+          console.error('Failed to record recipe onchain', error_);
+          const message = error_ instanceof Error ? error_.message : 'Failed to record recipe onchain.';
         setOnchainError(message);
         setTimeout(() => setOnchainError(null), 6000);
         setOnchainStatus(null);
@@ -502,10 +901,10 @@ const App: React.FC = () => {
     playSound();
   };
 
-  const handleToggleRotation = () => {
+  const handleToggleRotation = React.useCallback(() => {
     playSound();
-    setIsRandomRotation(prev => !prev);
-  };
+    setIsRandomRotation((prev) => !prev);
+  }, [playSound]);
 
   const membershipPriceDisplay = React.useMemo(() => {
     const price = membershipPriceWei ?? DEFAULT_MEMBERSHIP_PRICE_WEI;
@@ -548,18 +947,31 @@ const App: React.FC = () => {
     [onchainRecipes, savedRecipes]
   );
 
+  const isGenerating = loadingState !== 'idle';
+
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative text-center">
       <div className="absolute inset-0 bg-black/70 z-0"></div>
        <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
         <button onClick={() => { playSound(); setShowSavedModal(true); }} className="arcade-button-small">COOKBOOK</button>
         <button
-          onClick={() => { playSound(); connectWalletFlow().catch(() => undefined); }}
+            onClick={handleWalletButtonClick}
           className="arcade-button-small"
           disabled={isWalletBusy}
         >
           {walletAddress ? (walletName ?? shortenAddress(walletAddress)) : 'CONNECT WALLET'}
         </button>
+          <button
+            onClick={handleGoogleAuthToggle}
+            className="arcade-button-small"
+          >
+            {firebaseUser ? 'SIGN OUT GOOGLE' : 'SIGN IN GOOGLE'}
+          </button>
+          {authToken && !linkedGoogleId && (
+            <button onClick={handleLinkGoogleAccount} className="arcade-button-small">
+              LINK GOOGLE ACCOUNT
+            </button>
+          )}
         {lastTxHash && (
           <a
             href={`https://sepolia.basescan.org/tx/${lastTxHash}`}
@@ -570,6 +982,41 @@ const App: React.FC = () => {
             VIEW TX
           </a>
         )}
+          {!isMetamaskDetected && (
+            <a
+              href="https://metamask.io/download/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pixel-font-small text-xs text-yellow-300 underline text-right max-w-[200px] leading-tight"
+            >
+              INSTALL METAMASK TO AUTHENTICATE
+            </a>
+          )}
+          {authStatus && (
+            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+              {authStatus}
+            </span>
+          )}
+          {googleAuthStatus && (
+            <span className="pixel-font-small text-xs text-blue-300 text-right max-w-[200px] leading-tight">
+              {googleAuthStatus}
+            </span>
+          )}
+          {firebaseUser && (
+            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+              GOOGLE USER: {(firebaseUser.email ?? firebaseUser.displayName ?? firebaseUser.uid).toUpperCase()}
+            </span>
+          )}
+          {!firebaseUser && googleIdentityProfile && (
+            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+              GOOGLE USER: {(googleIdentityProfile.email ?? googleIdentityProfile.displayName ?? googleIdentityProfile.googleId).toUpperCase()}
+            </span>
+          )}
+          {linkedGoogleId && (
+            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+              GOOGLE LINKED: {linkedGoogleId}
+            </span>
+          )}
         {onchainError && (
           <span className="pixel-font-small text-xs text-red-400 text-right max-w-[200px] leading-tight">
             {onchainError}
@@ -577,12 +1024,16 @@ const App: React.FC = () => {
         )}
       </div>
        <div className="absolute top-4 left-4 z-30 flex flex-col items-start gap-4">
-        <div onClick={handleToggleRotation} className={`arcade-toggle-switch ${isRandomRotation ? 'toggled' : ''}`}>
+        <button
+          type="button"
+          onClick={handleToggleRotation}
+          className={`arcade-toggle-switch ${isRandomRotation ? 'toggled' : ''}`}
+        >
            <span className="pixel-font-small text-xs">RANDOMIZER</span>
            <div className="switch-track">
               <div className="switch-handle"></div>
            </div>
-        </div>
+  </button>
         <div>
           <label htmlFor="language-select" className="pixel-font-small text-xs text-green-400 block mb-1 text-left">LANGUAGE</label>
           <select 
@@ -638,7 +1089,7 @@ const App: React.FC = () => {
           <p className="pixel-font-small text-green-400 mt-2">EXPLORE INFINITE CULINARY BRANCHES</p>
         </header>
 
-        <main className="flex justify-center items-center relative" style={{ height: '50vh' }}>
+  <main className="flex justify-center items-center relative h-[50vh]">
           <div className="cube-container">
             <FractalCube 
               formData={formData}
@@ -653,13 +1104,13 @@ const App: React.FC = () => {
         </main>
         
         <footer className="text-center mt-8 relative z-20">
-          <div className={`transition-opacity duration-300 ${loadingState !== 'idle' ? 'opacity-50' : 'opacity-100'} ${error ? 'has-error' : ''}`}>
+       <div className={`transition-opacity duration-300 ${isGenerating ? 'opacity-50' : 'opacity-100'} ${error ? 'has-error' : ''}`}>
              <button
                 onClick={() => { playSound('generate-sound'); handleGenerateRecipe(); }}
-                disabled={loadingState !== 'idle'}
-                className={`arcade-button ${loadingState !== 'idle' ? 'loading' : ''}`}
+           disabled={isGenerating}
+           className={`arcade-button ${isGenerating ? 'loading' : ''}`}
              >
-              {loadingState !== 'idle' ? 'GENERATING...' : 'SYNTHESIZE RECIPE'}
+          {isGenerating ? 'GENERATING...' : 'SYNTHESIZE RECIPE'}
             </button>
           </div>
           {onchainStatus && (
@@ -668,12 +1119,9 @@ const App: React.FC = () => {
         </footer>
       </div>
 
-      {loadingState !== 'idle' && (
+      {isGenerating && (
         <>
-          <div 
-            className="loading-background-container visible" 
-            style={{ backgroundImage: `url('${THEMATIC_BACKGROUNDS['Cosmic Kitchen']}')` }}
-          ></div>
+          <div className="loading-background-container visible cosmic-kitchen-bg"></div>
           <div className="scanline-overlay"></div>
           <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/70 z-50">
             {(loadingState === 'recipe' || loadingState === 'transition') && <div className="recipe-loader"></div>}
