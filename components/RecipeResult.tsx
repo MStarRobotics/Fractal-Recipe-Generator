@@ -161,6 +161,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Only accept images
+      if (!file.type.startsWith('image/')) {
+        alert('Only image files are allowed.');
+        return;
+      }
       playSound('upload-sound');
       const reader = new FileReader();
       reader.onloadend = () => {
