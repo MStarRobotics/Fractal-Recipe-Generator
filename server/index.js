@@ -41,7 +41,19 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(helmet({
-  contentSecurityPolicy: false, // CSP requires tailoring for Vite dev and API-only server; disable by default
+  ...(IS_DEVELOPMENT
+    ? { 
+         contentSecurityPolicy: {
+           useDefaults: true,
+           directives: {
+             'default-src': ["'self'"],
+             // You may need to add Vite dev server and websocket hosts for development
+             // For example: 'script-src': ["'self'", "localhost:5173"],
+           },
+         }
+       }
+    : {}
+  ),
   crossOriginEmbedderPolicy: false,
 }));
 app.disable('x-powered-by');
