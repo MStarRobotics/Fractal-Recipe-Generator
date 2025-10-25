@@ -442,22 +442,23 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                   onMouseEnter={() => setShowControls(true)}
                   onMouseLeave={() => setShowControls(false)}
                 >
-                    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" />
+                    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" aria-label="Generated recipe video" />
                     <audio ref={audioRef} src={recordedAudioUrl || ''} loop />
                      <div className={`video-controls-overlay ${showControls || !isPlaying ? 'visible' : ''}`} onClick={togglePlayPause}>
                         <button className="video-control-button text-4xl">{isPlaying ? '❚❚' : '►'}</button>
-                        <input
+                <input
                            type="range" min="0" max="1" step="0.05"
                            value={volume}
                            onChange={handleVolumeChange}
                            onClick={(e) => e.stopPropagation()}
                            className="volume-slider"
+                  aria-label="Video and audio volume"
                         />
                      </div>
                 </div>
             ) : (
                 <>
-                  <img src={uploadedImage?.url || imageUrl} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
+                  <img src={(uploadedImage?.url && sanitizeUrl(uploadedImage.url)) || sanitizeUrl(imageUrl)} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
                    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
                       <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
                       <div className="flex items-center gap-2">
@@ -495,7 +496,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                             >
                               <div
                                 className="theme-item-preview"
-                                style={{ backgroundImage: url ? `url(${url})` : 'none' }}
+                                style={{ backgroundImage: url ? `url(${sanitizeUrl(url)})` : 'none' }}
                               >
                                 {url === '' && <span className="material-symbols-outlined">block</span>}
                               </div>
@@ -600,3 +601,16 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 };
 
 export default RecipeResult;
+
+// Simple URL sanitization to avoid dangerous protocols
+function sanitizeUrl(raw: string): string {
+  try {
+    // Allow blob, data (images), http, https
+    if (raw.startsWith('blob:') || raw.startsWith('data:image/')) return raw;
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+  } catch {
+    // fallthrough
+  }
+  return '';
+}
