@@ -1,12 +1,7 @@
-<div align="center">
-  <img width="1200" height="475" alt="Fractal Recipe UI" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # Fractal Recipe – Base Batches Builder Track Alpha
 
 Fractal Recipe is a retro-futuristic AI cooking companion handcrafted by the team to anchor every synthesized recipe on **Base Sepolia** for the Base Batches Builder Track. The UI/UX remains pixel-perfect to the provided reference while fulfilling the onchain requirements (wallet connect, contract writes, cookbook reads, Basename resolution, and traceable transaction history).
 
-- Live demo (configure your own deployment): _TODO_
 
 ## Getting Started
 
