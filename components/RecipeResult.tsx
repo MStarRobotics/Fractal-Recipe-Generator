@@ -617,16 +617,14 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 
 export default RecipeResult;
 
-// Simple URL sanitization to avoid dangerous protocols
+// Only allow blob: and data:image/ URLs for externally-provided images.
 function sanitizeUrl(raw: string): string {
-  try {
-    // Allow blob, data (images), http, https
-    if (raw.startsWith('blob:') || raw.startsWith('data:image/')) return raw;
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
-  } catch {
-    // fallthrough
+  // Allow only blob: and data:image/ URLs. Disallow http(s): for user-provided values.
+  if (typeof raw !== 'string') return '';
+  if (raw.startsWith('blob:') || raw.startsWith('data:image/')) {
+    return raw;
   }
+  // Everything else is rejected
   return '';
 }
 
@@ -634,7 +632,7 @@ function getSafeImageSrc(raw: string | undefined | null): string | undefined {
   if (!raw) return undefined;
   const safe = sanitizeUrl(raw);
   if (!safe) return undefined;
-  // Whitelist data:image/*, blob:, http(s)
-  if (safe.startsWith('data:image/') || safe.startsWith('blob:') || safe.startsWith('http')) return safe;
+  // Only allow blob: and data:image/ URLs
+  if (safe.startsWith('data:image/') || safe.startsWith('blob:')) return safe;
   return undefined;
 }
