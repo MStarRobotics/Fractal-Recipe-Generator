@@ -1,5 +1,3 @@
-<div align="center">
-
 # Fractal Recipe Generator
 
 [![Vite](https://img.shields.io/badge/Vite-Build-blue)](https://vitejs.dev)
@@ -9,8 +7,6 @@
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey)](LICENSE.md)
 
 Retro‑arcade web app that generates recipes with AI and anchors them on‑chain. MetaMask (SIWE) + Google sign‑in, built with Vite + React, viem/wagmi, and a tiny Express auth server.
-
-</div>
 
 ## Quick start
 
@@ -29,12 +25,14 @@ npm run build
 ```
 
 ## Features
+
 - AI recipe generation with a retro UI.
 - On‑chain registry on Base Sepolia (lifetime membership model).
 - MetaMask sign‑in (SIWE) + Google sign‑in (Firebase or Google Identity fallback).
 - Video trailer maker (image + voiceover), local drafts, and cookbook.
 
 ## Configure
+
 Copy `.env.example` to `.env` (kept local; ignored by git) and set the values you use:
 
 - VITE_BASE_RPC_URL, VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS, VITE_FRACTAL_RECIPE_DEPLOY_BLOCK
@@ -45,9 +43,11 @@ Copy `.env.example` to `.env` (kept local; ignored by git) and set the values yo
 Auth server (`server/.env`): PORT, JWT_SECRET, optional Firebase Admin keys, GOOGLE_OAUTH_CLIENT_ID for token checks.
 
 ## Stack
+
 Vite + React + TypeScript • Tailwind • viem/wagmi • OnchainKit • Express • Firebase (client/admin) • Google Identity Services.
 
 ## Security notes
+
 - `.env`, `.env.*` are git‑ignored. Use `.env.example` for placeholders.
 - Auth server signs short‑lived JWTs. Keep `JWT_SECRET` strong. Never commit real secrets.
 - Client sanitizes image URLs used in previews.

@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET ?? 'change-this-secret-before-producti
 const TOKEN_TTL_SECONDS = Number(process.env.JWT_TTL_SECONDS ?? 3600);
 const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', 'http://localhost:3000'];
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID ?? null;
 
 const corsOptions = {
@@ -30,7 +30,36 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '50kb' }));
+
+// Simple in-memory rate limiter per IP + path
+const rateBuckets = new Map();
+function rateLimit(options) {
+  const { windowMs = 60_000, limit = 60, keyGenerator } = options ?? {};
+  return (req, res, next) => {
+    try {
+      const keyBase = keyGenerator ? keyGenerator(req) : `${req.ip}:${req.path}`;
+      const now = Date.now();
+      const bucket = rateBuckets.get(keyBase) ?? { count: 0, reset: now + windowMs };
+      if (now > bucket.reset) {
+        bucket.count = 0;
+        bucket.reset = now + windowMs;
+      }
+      bucket.count += 1;
+      rateBuckets.set(keyBase, bucket);
+      res.setHeader('X-RateLimit-Limit', String(limit));
+      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, limit - bucket.count)));
+      res.setHeader('X-RateLimit-Reset', String(bucket.reset));
+      if (bucket.count > limit) {
+        res.status(429).json({ error: 'Too many requests. Please try again later.' });
+        return;
+      }
+      next();
+    } catch (e) {
+      next();
+    }
+  };
+}
 
 const pendingNonces = new Map();
 const walletDirectory = new Map();
@@ -148,7 +177,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-app.post('/auth/nonce', (req, res) => {
+app.post('/auth/nonce', rateLimit({ windowMs: 60_000, limit: 30 }), (req, res) => {
   try {
     const { address } = req.body ?? {};
     if (!address) {
@@ -163,7 +192,7 @@ app.post('/auth/nonce', (req, res) => {
   }
 });
 
-app.post('/auth/verify', async (req, res) => {
+app.post('/auth/verify', rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
   try {
     const { address, signature } = req.body ?? {};
     if (!address || !signature) {
@@ -217,7 +246,7 @@ app.post('/auth/verify', async (req, res) => {
   }
 });
 
-app.post('/auth/link', authenticateRequest, async (req, res) => {
+app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
   try {
     const { googleId, email, displayName, googleAccessToken } = req.body ?? {};
 
@@ -298,7 +327,7 @@ app.post('/auth/link', authenticateRequest, async (req, res) => {
   }
 });
 
-app.get('/auth/profile', authenticateRequest, (req, res) => {
+app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 60 }), (req, res) => {
   try {
     const normalizedAddress = normalizeAddress(req.auth.address);
     const walletRecord = buildWalletRecord(normalizedAddress);

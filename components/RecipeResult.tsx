@@ -40,7 +40,7 @@ const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob =
   return new Blob(byteArrays, { type: contentType });
 };
 
-const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }) => {
+const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }: RecipeResultProps) => {
   const [videoGenerationStep, setVideoGenerationStep] = React.useState<'idle' | 'generating'>('idle');
   const [videoLoadingMessage, setVideoLoadingMessage] = React.useState(VIDEO_GENERATION_MESSAGES[0]);
   const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
@@ -95,11 +95,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       }
     );
 
-    instructionElements.forEach((instruction) => observer.observe(instruction));
+  instructionElements.forEach((instruction: Element) => observer.observe(instruction));
 
     // Cleanup function to unobserve elements when the component/recipe changes.
     return () => {
-      instructionElements.forEach((instruction) => observer.unobserve(instruction));
+  instructionElements.forEach((instruction: Element) => observer.unobserve(instruction));
     };
   }, [recipe]); // This effect only depends on the recipe changing.
 
@@ -186,7 +186,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
         mediaRecorderRef.current = new MediaRecorder(stream);
         
         const localAudioChunks: Blob[] = [];
-        mediaRecorderRef.current.ondataavailable = (event) => {
+  mediaRecorderRef.current.ondataavailable = (event: BlobEvent) => {
           localAudioChunks.push(event.data);
         };
         
@@ -253,7 +253,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     playSound('record-stop-sound');
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+  mediaRecorderRef.current.stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
       setIsRecording(false);
     }
   };
@@ -279,7 +279,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       setVideoLoadingMessage(VIDEO_GENERATION_MESSAGES[0]);
 
       messageInterval = window.setInterval(() => {
-        setVideoLoadingMessage(prev => {
+        setVideoLoadingMessage((prev: string) => {
           const currentIndex = VIDEO_GENERATION_MESSAGES.indexOf(prev);
           const nextIndex = (currentIndex + 1) % VIDEO_GENERATION_MESSAGES.length;
           return VIDEO_GENERATION_MESSAGES[nextIndex];
@@ -458,7 +458,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                 </div>
             ) : (
                 <>
-                  <img src={(uploadedImage?.url && sanitizeUrl(uploadedImage.url)) || sanitizeUrl(imageUrl)} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
+                  {(() => { const src = getSafeImageSrc(uploadedImage?.url ?? imageUrl); return src ? (
+                    <img src={src} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
+                  ) : (
+                    <div className="w-full aspect-square grid place-items-center border border-green-800 bg-black/40 text-green-400">NO IMAGE</div>
+                  ); })()}
                    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
                       <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
                       <div className="flex items-center gap-2">
@@ -494,11 +498,12 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                                 setSelectedTheme(name);
                               }}
                             >
-                              <div
-                                className="theme-item-preview"
-                                style={{ backgroundImage: url ? `url(${sanitizeUrl(url)})` : 'none' }}
-                              >
-                                {url === '' && <span className="material-symbols-outlined">block</span>}
+                              <div className="theme-item-preview">
+                                {url ? (
+                                  <img src={sanitizeUrl(url)} alt={`${name} preview`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="material-symbols-outlined">block</span>
+                                )}
                               </div>
                               <div className="theme-item-name">{name}</div>
                             </div>
@@ -579,8 +584,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                   {recipe.instructions.map((step, i) => (
                     <li 
                       key={i} 
-                      className="instruction-step" 
-                      style={{ transitionDelay: `${i * 150}ms` }}
+                      className={`instruction-step delay-step-${i % 24}`}
                     >
                       {step}
                     </li>
@@ -613,4 +617,13 @@ function sanitizeUrl(raw: string): string {
     // fallthrough
   }
   return '';
+}
+
+function getSafeImageSrc(raw: string | undefined | null): string | undefined {
+  if (!raw) return undefined;
+  const safe = sanitizeUrl(raw);
+  if (!safe) return undefined;
+  // Whitelist data:image/*, blob:, http(s)
+  if (safe.startsWith('data:image/') || safe.startsWith('blob:') || safe.startsWith('http')) return safe;
+  return undefined;
 }
