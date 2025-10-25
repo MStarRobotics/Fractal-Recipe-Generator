@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { randomBytes, randomInt } from 'node:crypto';
 import { verifyMessage } from 'viem';
@@ -696,7 +697,7 @@ app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, limi
   }
 });
 
-app.post('/auth/logout', authenticateRequest, (req, res) => {
+app.post('/auth/logout', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 60 }), (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader.slice('Bearer '.length);
   activeTokens.delete(token);
