@@ -40,6 +40,17 @@ const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob =
   return new Blob(byteArrays, { type: contentType });
 };
 
+const TRUSTED_IMAGE_HOSTS = [
+  'https://storage.googleapis.com/',
+  // Add more trusted host prefixes here as needed
+];
+
+function isTrustedImageUrl(url: string): boolean {
+  if (!url) return false;
+  if (url.startsWith('data:image/')) return true;
+  return TRUSTED_IMAGE_HOSTS.some(prefix => url.startsWith(prefix));
+}
+
 const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }) => {
   const [videoGenerationStep, setVideoGenerationStep] = React.useState<'idle' | 'generating'>('idle');
   const [videoLoadingMessage, setVideoLoadingMessage] = React.useState(VIDEO_GENERATION_MESSAGES[0]);
@@ -457,7 +468,15 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                 </div>
             ) : (
                 <>
-                  <img src={uploadedImage?.url || imageUrl} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
+                  <img
+                    src={
+                      uploadedImage?.url && isTrustedImageUrl(uploadedImage.url)
+                        ? uploadedImage.url
+                        : (isTrustedImageUrl(imageUrl) ? imageUrl : '')
+                    }
+                    alt={recipe.dishName}
+                    className="w-full aspect-square object-cover recipe-image-retro"
+                  />
                    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
                       <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
                       <div className="flex items-center gap-2">
