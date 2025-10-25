@@ -1,3 +1,4 @@
+// Bootstraps the React tree and wraps the app with shared providers.
 import * as React from 'react';
 import * as ReactDOM from 'react-dom/client';
 import App from './App';

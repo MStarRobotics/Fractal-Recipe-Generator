@@ -1,3 +1,4 @@
+// Provider tree that configures OnchainKit and shared clients for the app.
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { OnchainKitProvider } from '@coinbase/onchainkit';

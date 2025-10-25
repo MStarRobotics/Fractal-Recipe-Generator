@@ -1,3 +1,4 @@
+// Modal component that renders generated recipes and media workflows.
 import * as React from 'react';
 import { Recipe } from '../types';
 import { generateRecipeVideo, transcribeAudio } from '../services/geminiService';

@@ -1,5 +1,5 @@
-import { createWalletClient, createPublicClient, custom, http, parseAbiItem } from 'viem';
-import type { Address, Hex } from 'viem';
+// Blockchain helpers for wallet connectivity, membership management, and cookbook syncing.
+import { createWalletClient, createPublicClient, custom, http, parseAbiItem, type Abi, type Address, type Hex } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import { FRACTAL_RECIPE_REGISTRY_ABI } from '../contracts/fractalRecipeRegistryAbi';
 import type { SavedRecipe } from '../types';
@@ -8,6 +8,7 @@ import { getName } from '@coinbase/onchainkit/identity';
 
 const DEFAULT_BASE_RPC = 'https://sepolia.base.org';
 const BASE_SEPOLIA_CHAIN_ID = '0x14a34';
+export const DEFAULT_MEMBERSHIP_PRICE_WEI = 10_000_000_000_000_000n; // 0.01 ether
 
 const rpcUrl = import.meta.env.VITE_BASE_RPC_URL || DEFAULT_BASE_RPC;
 const contractAddressEnv = import.meta.env.VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS;
@@ -20,6 +21,8 @@ const publicClient = createPublicClient({
   chain: baseSepolia,
   transport: http(rpcUrl),
 });
+
+const registryAbi = FRACTAL_RECIPE_REGISTRY_ABI as Abi;
 
 const recipeSynthesizedEvent = parseAbiItem('event RecipeSynthesized(uint256 indexed recipeId, address indexed creator, string dishName, string metadataURI, uint256 timestamp)');
 
@@ -103,10 +106,77 @@ export const recordRecipeOnchain = async (
 
   const hash = await walletClient.writeContract({
     address: contractAddress,
-    abi: FRACTAL_RECIPE_REGISTRY_ABI,
+    abi: registryAbi,
     functionName: 'storeRecipe',
     args: [savedRecipe.recipe.dishName, metadataUri],
+    account,
+    chain: baseSepolia,
+  } as any);
+
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
+};
+
+export const fetchMembershipPrice = async (): Promise<bigint> => {
+  if (!contractAddress) {
+    return DEFAULT_MEMBERSHIP_PRICE_WEI;
+  }
+
+  try {
+    return (await publicClient.readContract({
+      address: contractAddress,
+      abi: registryAbi,
+      functionName: 'LIFETIME_MEMBERSHIP_PRICE',
+    } as any)) as bigint;
+  } catch (error) {
+    console.warn('Failed to read membership price, using default.', error);
+    return DEFAULT_MEMBERSHIP_PRICE_WEI;
+  }
+};
+
+export const checkLifetimeMembership = async (account: Address): Promise<boolean> => {
+  if (!contractAddress) {
+    return false;
+  }
+
+  try {
+    return (await publicClient.readContract({
+      address: contractAddress,
+      abi: registryAbi,
+      functionName: 'isLifetimeMember',
+      args: [account],
+    } as any)) as boolean;
+  } catch (error) {
+    console.warn('Failed to check lifetime membership', error);
+    return false;
+  }
+};
+
+export const purchaseLifetimeMembership = async (account: Address, priceOverride?: bigint): Promise<Hex> => {
+  if (!contractAddress) {
+    throw new Error('Contract address missing. Set VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS before purchasing membership.');
+  }
+
+  const provider = getInjectedProvider();
+  await ensureBaseSepolia(provider);
+
+  const walletClient = createWalletClient({
+    account,
+    chain: baseSepolia,
+    transport: custom(provider),
   });
+
+  const value = priceOverride ?? (await fetchMembershipPrice());
+
+  const hash = await walletClient.writeContract({
+    address: contractAddress,
+    abi: registryAbi,
+    functionName: 'purchaseLifetimeMembership',
+    args: [],
+    value,
+    account,
+    chain: baseSepolia,
+  } as any);
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -119,9 +189,9 @@ export const fetchOnchainCookbook = async (limit = 12): Promise<SavedRecipe[]> =
 
   const total = (await publicClient.readContract({
     address: contractAddress,
-    abi: FRACTAL_RECIPE_REGISTRY_ABI,
+    abi: registryAbi,
     functionName: 'totalRecipes',
-  })) as bigint;
+  } as any)) as bigint;
 
   if (total === 0n) {
     return [];
@@ -132,10 +202,10 @@ export const fetchOnchainCookbook = async (limit = 12): Promise<SavedRecipe[]> =
 
   const rawRecipes = (await publicClient.readContract({
     address: contractAddress,
-    abi: FRACTAL_RECIPE_REGISTRY_ABI,
+    abi: registryAbi,
     functionName: 'getRecipes',
     args: [BigInt(startIndex), BigInt(clamped)],
-  })) as Array<{ creator: Address; dishName: string; metadataURI: string; createdAt: bigint }>;
+  } as any)) as Array<{ creator: Address; dishName: string; metadataURI: string; createdAt: bigint }>;
 
   const logs = await publicClient.getLogs({
     address: contractAddress,

@@ -1,6 +1,7 @@
+// ABI definition for the FractalRecipeRegistry contract consumed by viem.
 import type { Abi } from 'viem';
 
-export const FRACTAL_RECIPE_REGISTRY_ABI: Abi = [
+export const FRACTAL_RECIPE_REGISTRY_ABI = [
   {
     type: 'event',
     name: 'RecipeSynthesized',
@@ -14,6 +15,15 @@ export const FRACTAL_RECIPE_REGISTRY_ABI: Abi = [
     anonymous: false,
   },
   {
+    type: 'event',
+    name: 'LifetimeMembershipPurchased',
+    inputs: [
+      { name: 'member', type: 'address', indexed: true },
+      { name: 'amountPaid', type: 'uint256', indexed: false },
+    ],
+    anonymous: false,
+  },
+  {
     type: 'function',
     name: 'storeRecipe',
     stateMutability: 'nonpayable',
@@ -22,6 +32,20 @@ export const FRACTAL_RECIPE_REGISTRY_ABI: Abi = [
       { name: 'metadataURI', type: 'string' },
     ],
     outputs: [{ name: 'recipeId', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'purchaseLifetimeMembership',
+    stateMutability: 'payable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'isLifetimeMember',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: 'isMember', type: 'bool' }],
   },
   {
     type: 'function',
@@ -69,4 +93,20 @@ export const FRACTAL_RECIPE_REGISTRY_ABI: Abi = [
       },
     ],
   },
-];
+  {
+    type: 'function',
+    name: 'LIFETIME_MEMBERSHIP_PRICE',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'withdraw',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'recipient', type: 'address' }],
+    outputs: [],
+  },
+] as const satisfies Abi;
+
+export type FractalRecipeRegistryAbi = typeof FRACTAL_RECIPE_REGISTRY_ABI;

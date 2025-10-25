@@ -1,3 +1,4 @@
+// Shared TypeScript interfaces that describe recipes, forms, and UI state.
 import { COOKING_TIMES, DISH_TYPES, LANGUAGES } from './constants';
 
 export interface Recipe {

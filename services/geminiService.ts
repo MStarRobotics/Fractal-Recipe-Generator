@@ -1,3 +1,4 @@
+// Gemini service utilities for generating recipes, images, videos, and analyses.
 import { GoogleGenAI, Type } from "@google/genai";
 import { RecipeFormData, SavedRecipe, Recipe } from '../types';
 import { THEME_PROMPTS } from '../constants';

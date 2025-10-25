@@ -1,12 +1,13 @@
+// Core application component that manages recipe synthesis, wallet flow, and membership gating.
 import * as React from 'react';
 import FractalCube from './components/FractalCube';
 import RecipeResult from './components/RecipeResult';
 import SavedRecipesModal from './components/SavedRecipesModal';
-import type { Address } from 'viem';
+import { formatEther, type Address } from 'viem';
 import { RecipeFormData, SavedRecipe, LoadingState } from './types';
 import { generateRecipe, generateImageForRecipe } from './services/geminiService';
 import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES, THEMATIC_BACKGROUNDS } from './constants';
-import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename } from './services/baseRegistry';
+import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename, fetchMembershipPrice, checkLifetimeMembership, purchaseLifetimeMembership, DEFAULT_MEMBERSHIP_PRICE_WEI } from './services/baseRegistry';
 
 const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed' | 'Neutral' | 'Unknown' => {
   // Clean text of characters that are common across many scripts
@@ -78,33 +79,62 @@ const App: React.FC = () => {
   const [onchainStatus, setOnchainStatus] = React.useState<string | null>(null);
   const [onchainError, setOnchainError] = React.useState<string | null>(null);
   const [onchainRecipes, setOnchainRecipes] = React.useState<SavedRecipe[]>([]);
+  const [isLifetimeMember, setIsLifetimeMember] = React.useState<boolean | null>(null);
+  const [membershipPriceWei, setMembershipPriceWei] = React.useState<bigint | null>(null);
+  const [isMembershipLoading, setIsMembershipLoading] = React.useState(false);
+  const [isPurchasingMembership, setIsPurchasingMembership] = React.useState(false);
+  const [membershipStatus, setMembershipStatus] = React.useState<string | null>(null);
+  const [membershipError, setMembershipError] = React.useState<string | null>(null);
+  const [membershipTxHash, setMembershipTxHash] = React.useState<string | null>(null);
 
-    const connectWalletFlow = React.useCallback(async (): Promise<Address> => {
-      setOnchainError(null);
-      setOnchainStatus('CONNECTING TO BASE SEPOLIA...');
-      setIsWalletBusy(true);
-      try {
-        const address = await connectWallet();
-        setWalletAddress(address);
-        setOnchainStatus(`CONNECTED: ${shortenAddress(address)}`);
-        return address;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Wallet connection failed.';
-        setOnchainError(message);
-        setTimeout(() => setOnchainError(null), 6000);
-        setOnchainStatus(null);
-        throw err;
-      } finally {
-        setIsWalletBusy(false);
-      }
-    }, []);
+  const refreshMembershipStatus = React.useCallback(async (address: Address): Promise<boolean> => {
+    setIsMembershipLoading(true);
+    setMembershipError(null);
+    try {
+      const active = await checkLifetimeMembership(address);
+      setIsLifetimeMember(active);
+      setMembershipStatus(active ? 'LIFETIME ACCESS ACTIVE' : 'LIFETIME MEMBERSHIP REQUIRED');
+      return active;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to verify membership.';
+      setMembershipError(message);
+      setTimeout(() => setMembershipError(null), 6000);
+      return false;
+    } finally {
+      setIsMembershipLoading(false);
+    }
+  }, []);
 
-    const ensureWalletConnection = React.useCallback(async (): Promise<Address> => {
-      if (walletAddress) {
-        return walletAddress;
+  const connectWalletFlow = React.useCallback(async (): Promise<Address> => {
+    setOnchainError(null);
+    setOnchainStatus('CONNECTING TO BASE SEPOLIA...');
+    setIsWalletBusy(true);
+    try {
+      const address = await connectWallet();
+      setWalletAddress(address);
+      setOnchainStatus(`CONNECTED: ${shortenAddress(address)}`);
+      setMembershipStatus('CHECKING MEMBERSHIP...');
+      return address;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Wallet connection failed.';
+      setOnchainError(message);
+      setTimeout(() => setOnchainError(null), 6000);
+      setOnchainStatus(null);
+      throw err;
+    } finally {
+      setIsWalletBusy(false);
+    }
+  }, []);
+
+  const ensureWalletConnection = React.useCallback(async (): Promise<Address> => {
+    if (walletAddress) {
+      if (isLifetimeMember === null) {
+        refreshMembershipStatus(walletAddress).catch(() => undefined);
       }
-      return connectWalletFlow();
-    }, [walletAddress, connectWalletFlow]);
+      return walletAddress;
+    }
+    return connectWalletFlow();
+  }, [walletAddress, connectWalletFlow, refreshMembershipStatus, isLifetimeMember]);
   const [lastTxHash, setLastTxHash] = React.useState<string | null>(null);
   const [isWalletBusy, setIsWalletBusy] = React.useState(false);
 
@@ -144,6 +174,26 @@ const App: React.FC = () => {
         setTimeout(() => setError(null), 4000);
       }
     }
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    fetchMembershipPrice()
+      .then((price) => {
+        if (!cancelled) {
+          setMembershipPriceWei(price ?? DEFAULT_MEMBERSHIP_PRICE_WEI);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMembershipPriceWei(DEFAULT_MEMBERSHIP_PRICE_WEI);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const loadOnchainCookbook = React.useCallback(async () => {
@@ -195,6 +245,17 @@ const App: React.FC = () => {
   }, [walletAddress]);
 
   React.useEffect(() => {
+    if (!walletAddress) {
+      setIsLifetimeMember(null);
+      setMembershipStatus(null);
+      setMembershipTxHash(null);
+      return;
+    }
+
+    refreshMembershipStatus(walletAddress).catch(() => undefined);
+  }, [walletAddress, refreshMembershipStatus]);
+
+  React.useEffect(() => {
     const globalWindow = typeof globalThis === 'object'
       ? (globalThis as Window & { ethereum?: { on?: (...args: unknown[]) => void; removeListener?: (...args: unknown[]) => void } })
       : undefined;
@@ -209,10 +270,14 @@ const App: React.FC = () => {
         setWalletAddress(null);
         setWalletName(null);
         setOnchainStatus(null);
+        setIsLifetimeMember(null);
+        setMembershipStatus(null);
+        setMembershipTxHash(null);
         return;
       }
       setWalletAddress(accounts[0] as Address);
       setOnchainStatus(`CONNECTED: ${shortenAddress(accounts[0] as Address)}`);
+      setMembershipStatus('CHECKING MEMBERSHIP...');
     };
 
     provider.on('accountsChanged', handleAccountsChanged);
@@ -243,6 +308,36 @@ const App: React.FC = () => {
       console.error(`Error playing sound (${soundId}): ${err.message}`);
     });
   }, []);
+
+  const handlePurchaseMembership = React.useCallback(async () => {
+    let activeAddress: Address;
+    try {
+      activeAddress = await ensureWalletConnection();
+    } catch {
+      return;
+    }
+
+    setMembershipError(null);
+    setMembershipStatus('PREPARING MEMBERSHIP TX...');
+    setIsPurchasingMembership(true);
+    playSound('upload-sound');
+
+    try {
+      const priceToPay = membershipPriceWei ?? DEFAULT_MEMBERSHIP_PRICE_WEI;
+      const txHash = await purchaseLifetimeMembership(activeAddress, priceToPay);
+      setMembershipTxHash(txHash);
+      setMembershipStatus('LIFETIME MEMBERSHIP ACTIVATED');
+      setIsLifetimeMember(true);
+      await refreshMembershipStatus(activeAddress);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Membership purchase failed.';
+      setMembershipError(message);
+      setTimeout(() => setMembershipError(null), 6000);
+      setMembershipStatus(null);
+    } finally {
+      setIsPurchasingMembership(false);
+    }
+  }, [ensureWalletConnection, membershipPriceWei, playSound, refreshMembershipStatus]);
 
   const handleAddIngredient = (ingredient: string) => {
     const selectedScript = LANGUAGE_TO_SCRIPT[formData.language];
@@ -287,6 +382,7 @@ const App: React.FC = () => {
       playSound();
       return;
     }
+
     setError(null);
     setRecipeResult(null);
     setOnchainStatus(null);
@@ -296,6 +392,17 @@ const App: React.FC = () => {
       activeAddress = await ensureWalletConnection();
     } catch (walletErr) {
       console.error('Wallet connection failed', walletErr);
+      return;
+    }
+
+    const hasMembership = isLifetimeMember === true
+      ? true
+      : await refreshMembershipStatus(activeAddress);
+
+    if (!hasMembership) {
+      setError('LIFETIME MEMBERSHIP REQUIRED. JOIN THE FRACTAL KITCHEN TO CONTINUE.');
+      setTimeout(() => setError(null), 5000);
+      playSound();
       return;
     }
 
@@ -400,6 +507,42 @@ const App: React.FC = () => {
     setIsRandomRotation(prev => !prev);
   };
 
+  const membershipPriceDisplay = React.useMemo(() => {
+    const price = membershipPriceWei ?? DEFAULT_MEMBERSHIP_PRICE_WEI;
+    const formatted = formatEther(price);
+    const numeric = Number.parseFloat(formatted);
+    if (Number.isFinite(numeric)) {
+      const decimals = numeric >= 1 ? 2 : 3;
+      return Number(numeric.toFixed(decimals)).toString();
+    }
+    return formatted;
+  }, [membershipPriceWei]);
+
+  const membershipMessage = React.useMemo(() => {
+    if (isMembershipLoading) {
+      return 'VERIFYING MEMBERSHIP...';
+    }
+    if (membershipStatus) {
+      return membershipStatus;
+    }
+    if (walletAddress) {
+      return 'Members can anchor recipes forever.';
+    }
+    return 'Connect a wallet to become a lifetime member.';
+  }, [isMembershipLoading, membershipStatus, walletAddress]);
+
+  const membershipButtonLabel = React.useMemo(() => {
+    if (isLifetimeMember) {
+      return 'MEMBER ACTIVE';
+    }
+    if (isPurchasingMembership) {
+      return 'PROCESSING...';
+    }
+    return `JOIN FOR ${membershipPriceDisplay} ETH`;
+  }, [isLifetimeMember, isPurchasingMembership, membershipPriceDisplay]);
+
+  const disableMembershipButton = isLifetimeMember === true || isPurchasingMembership || isMembershipLoading || isWalletBusy;
+
   const cookbookEntries = React.useMemo(
     () => [...onchainRecipes, ...savedRecipes],
     [onchainRecipes, savedRecipes]
@@ -454,6 +597,39 @@ const App: React.FC = () => {
             {LANGUAGES.map(lang => <option key={lang} value={lang}>{lang}</option>)}
           </select>
         </div>
+      </div>
+
+      <div className="absolute bottom-4 left-4 z-30 w-72 max-w-[90vw] text-left border border-green-500/60 bg-black/70 px-4 py-3 rounded-sm shadow-md">
+        <h2 className="pixel-font-small text-green-300 text-lg">LIFETIME MEMBERSHIP</h2>
+        <p className="pixel-font-small text-green-400 mt-2 leading-tight">
+          Unlock permanent synth access for {membershipPriceDisplay} ETH on Base.
+        </p>
+        <ul className="pixel-font-small text-green-500 text-xs mt-3 space-y-1">
+          <li>- Unlimited onchain cookbook slots</li>
+          <li>- Retro-futuristic drops for members</li>
+          <li>- Support the Fractal kitchen crew</li>
+        </ul>
+        <button
+          onClick={handlePurchaseMembership}
+          disabled={disableMembershipButton}
+          className={`arcade-button-small mt-4 w-full ${disableMembershipButton ? 'opacity-60 cursor-not-allowed' : ''}`}
+        >
+          {membershipButtonLabel}
+        </button>
+        <p className="pixel-font-small text-green-300 mt-3 leading-tight">{membershipMessage}</p>
+        {membershipError && (
+          <p className="pixel-font-small text-red-400 mt-2 leading-tight">{membershipError}</p>
+        )}
+        {membershipTxHash && (
+          <a
+            href={`https://sepolia.basescan.org/tx/${membershipTxHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pixel-font-small text-green-400 underline mt-2 inline-block"
+          >
+            VIEW MEMBERSHIP TX
+          </a>
+        )}
       </div>
 
       <div className="z-10 w-full">

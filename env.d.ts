@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+// Typed declaration of the Vite environment variables used across the app.
 declare global {
   interface ImportMetaEnv {
     readonly VITE_PUBLIC_ONCHAINKIT_API_KEY?: string;

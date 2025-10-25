@@ -1,3 +1,4 @@
+// Shared constants that drive form defaults, flavor copy, and theming cues.
 export const COOKING_TIMES = ['< 30 min', '30-60 min', '> 1 hour'] as const;
 export const DISH_TYPES = ['Main Course', 'Appetizer', 'Side Dish', 'Dessert'] as const;
 export const LANGUAGES = ['English', 'Spanish', 'French', 'Hindi', 'Bengali'] as const;

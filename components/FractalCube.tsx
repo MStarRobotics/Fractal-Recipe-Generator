@@ -1,3 +1,4 @@
+// Interactive cube UI that collects form inputs and ingredient selections.
 import * as React from 'react';
 import { RecipeFormData } from '../types';
 import { COOKING_TIMES, DISH_TYPES, COMMON_INGREDIENTS } from '../constants';

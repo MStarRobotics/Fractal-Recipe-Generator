@@ -1,3 +1,4 @@
+// Modal listing saved recipes with analysis and load/delete actions.
 import * as React from 'react';
 import type { SavedRecipe } from '../types';
 import { analyzeCookbook } from '../services/geminiService';

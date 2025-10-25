@@ -39,9 +39,9 @@ Open [http://localhost:5173](http://localhost:5173) (or the URL printed by Vite)
 
 | File | Purpose |
 | --- | --- |
-| [`contracts/FractalRecipeRegistry.sol`](contracts/FractalRecipeRegistry.sol) | Minimal registry that stores recipe metadata URIs and emits `RecipeSynthesized` events. |
-| [`contracts/fractalRecipeRegistryAbi.ts`](contracts/fractalRecipeRegistryAbi.ts) | Type-safe ABI consumed by the frontend. |
-| [`services/baseRegistry.ts`](services/baseRegistry.ts) | Wallet orchestration, Base Sepolia RPC management, transaction submission, Basename lookup, and cookbook sync. |
+| [`contracts/FractalRecipeRegistry.sol`](contracts/FractalRecipeRegistry.sol) | Registry that enforces a one-time lifetime membership (0.01 ETH) before anchoring recipe metadata and emits `RecipeSynthesized` plus `LifetimeMembershipPurchased` events. |
+| [`contracts/fractalRecipeRegistryAbi.ts`](contracts/fractalRecipeRegistryAbi.ts) | Type-safe ABI, including membership helpers, consumed by the frontend. |
+| [`services/baseRegistry.ts`](services/baseRegistry.ts) | Wallet orchestration, Base Sepolia RPC management, membership price lookup/purchase, transaction submission, Basename lookup, and cookbook sync. |
 | [`utils/metadata.ts`](utils/metadata.ts) | Base64 data-URI encoding/decoding for recipe payloads. |
 
 ### Deployment Flow
@@ -64,6 +64,13 @@ Open [http://localhost:5173](http://localhost:5173) (or the URL printed by Vite)
 - `SYNTHESIZE RECIPE` now requires a connected wallet; after Gemini generates the payload, the dApp encodes metadata and invokes `storeRecipe`.
 - The **Cookbook** modal merges local drafts with onchain entries, tagging onchain rows, surfacing transaction links, and allowing read-only viewing.
 
+## Lifetime Membership Model
+
+- Lifetime access costs **0.01 ETH** (configurable via the `LIFETIME_MEMBERSHIP_PRICE` constant) and is paid in Base Sepolia ETH.
+- A **Lifetime Membership** panel (bottom-left of the UI) explains benefits and launches the `purchaseLifetimeMembership` transaction flow.
+- Recipe synthesis is gated to active members. Non-members are prompted to purchase before new onchain entries are written.
+- Contract owners can withdraw collected membership funds via the `withdraw(address)` helper once satisfied with accrued proceeds.
+
 ## Submission Checklist
 
 Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full Builder Track requirements distilled into executable steps (deployment proof, repo hygiene, demo video, and compliance notes).
@@ -77,7 +84,6 @@ Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full B
 ## Additional Notes
 
 - The retro UI remains unchanged; all web3 controls follow the existing neon aesthetic.
-- Basename support is optional for users—if no name resolves, the truncated address is shown.
-- The Gemini service remains untouched aside from the new onchain persistence hook.
+- Lifetime membership pricing is surfaced directly in-app so reviewers can join (paying 0.01 ETH on Base Sepolia) before testing recipe synthesis.
 
 Happy building! 🧪✨

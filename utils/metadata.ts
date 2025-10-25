@@ -1,3 +1,4 @@
+// Helpers for encoding and decoding recipe metadata into onchain-friendly payloads.
 import type { Recipe, SavedRecipe } from '../types';
 
 const DATA_URI_PREFIX = 'data:application/json;base64,';
