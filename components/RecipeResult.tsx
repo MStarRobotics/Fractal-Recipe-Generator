@@ -25,6 +25,23 @@ interface RecipeResultProps {
   playSound: (soundId?: string) => void;
 }
 
+// Helper to determine if a user-provided image URL is safe for use in src attribute
+function isSafeImageUrl(url: string | undefined | null): boolean {
+  if (!url || typeof url !== "string") return false;
+  // allow https URLs and data:image/ URLs only
+  try {
+    // Check for data:image/ base64 strings
+    if (url.startsWith("data:image/")) return true;
+    const parsed = new URL(url, window.location.origin);
+    // Only accept https: or http: protocols
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") return true;
+    return false;
+  } catch {
+    // If parsing fails (e.g. for relative paths), reject
+    return false;
+  }
+}
+
 const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob => {
   const byteCharacters = atob(base64);
   const byteArrays = [];
@@ -457,7 +474,17 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                 </div>
             ) : (
                 <>
-                  <img src={uploadedImage?.url || imageUrl} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" />
+                  <img
+                    src={
+                      uploadedImage?.url && isSafeImageUrl(uploadedImage.url)
+                        ? uploadedImage.url
+                        : isSafeImageUrl(imageUrl)
+                        ? imageUrl
+                        : ""
+                    }
+                    alt={recipe.dishName}
+                    className="w-full aspect-square object-cover recipe-image-retro"
+                  />
                    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
                       <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
                       <div className="flex items-center gap-2">
