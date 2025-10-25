@@ -8,11 +8,11 @@
 
 Fractal Recipe is a retro-futuristic AI cooking companion handcrafted by the team to anchor every synthesized recipe on **Base Sepolia** for the Base Batches Builder Track. The UI/UX remains pixel-perfect to the provided reference while fulfilling the onchain requirements (wallet connect, contract writes, cookbook reads, Basename resolution, and traceable transaction history).
 
-## 🚀 Live Demo
+## Live Demo
 
 Visit the live application: [https://mstarrobotics.github.io/Fractal-Recipe-Generator/](https://mstarrobotics.github.io/Fractal-Recipe-Generator/)
 
-## ✨ Features
+## Features
 
 - **AI-Powered Recipe Generation**: Creates unique fractal-inspired recipes using advanced AI
 - **Onchain Recipe Storage**: Every recipe is anchored on Base Sepolia blockchain
@@ -23,7 +23,7 @@ Visit the live application: [https://mstarrobotics.github.io/Fractal-Recipe-Gene
 - **Retro-Futuristic UI**: Pixel-perfect arcade aesthetic with neon effects
 - **Video Generation**: Create cooking videos with AI-generated content
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend**: React 19.2.0 with TypeScript
 - **Build Tool**: Vite 5.4.8
@@ -33,13 +33,13 @@ Visit the live application: [https://mstarrobotics.github.io/Fractal-Recipe-Gene
 - **Blockchain**: Solidity contracts on Base Sepolia
 - **Deployment**: GitHub Pages with GitHub Actions CI/CD
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js (v18 or higher)
 - MetaMask wallet
 - Base Sepolia testnet ETH (for membership and transactions)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 
@@ -86,7 +86,7 @@ npm run build
 
 The built files will be in the `dist/` directory, ready for deployment.
 
-## 🏗️ Onchain Architecture
+## Onchain Architecture
 
 | File | Purpose |
 | --- | --- |
@@ -95,7 +95,7 @@ The built files will be in the `dist/` directory, ready for deployment.
 | [`services/baseRegistry.ts`](services/baseRegistry.ts) | Wallet orchestration, Base Sepolia RPC management, membership price lookup/purchase, transaction submission, Basename lookup, and cookbook sync. |
 | [`utils/metadata.ts`](utils/metadata.ts) | Base64 data-URI encoding/decoding for recipe payloads. |
 
-## 🚀 Deployment Flow
+## Deployment Flow
 
 ### Smart Contract Deployment
 
@@ -115,20 +115,20 @@ The built files will be in the `dist/` directory, ready for deployment.
 
 The project is configured for automatic deployment to GitHub Pages via GitHub Actions. Push to the `main` branch to trigger deployment.
 
-## 💰 Lifetime Membership Model
+## Lifetime Membership Model
 
 - Lifetime access costs **0.01 ETH** (configurable via the `LIFETIME_MEMBERSHIP_PRICE` constant) and is paid in Base Sepolia ETH.
 - A **Lifetime Membership** panel (bottom-left of the UI) explains benefits and launches the `purchaseLifetimeMembership` transaction flow.
 - Recipe synthesis is gated to active members. Non-members are prompted to purchase before new onchain entries are written.
 - Contract owners can withdraw collected membership funds via the `withdraw(address)` helper once satisfied with accrued proceeds.
 
-## 📱 Frontend Wallet Experience
+## Frontend Wallet Experience
 
 - A small **CONNECT WALLET** control (top-right) adds/switches to Base Sepolia via MetaMask and resolves Basenames via OnchainKit when available.
 - `SYNTHESIZE RECIPE` now requires a connected wallet; after AI generates the payload, the dApp encodes metadata and invokes `storeRecipe`.
 - The **Cookbook** modal merges local drafts with onchain entries, tagging onchain rows, surfacing transaction links, and allowing read-only viewing.
 
-## 📋 Submission Checklist
+## Submission Checklist
 
 Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full Builder Track requirements distilled into executable steps (deployment proof, repo hygiene, demo video, and compliance notes).
 
@@ -138,7 +138,7 @@ Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full B
 - Acknowledge OFAC/Devfolio/Base terms inside your project README or submission deck.
 - Ensure at least one successful Base Sepolia transaction prior to October 24 and provide the transaction link.
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -146,15 +146,15 @@ Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full B
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Base Batches Builder Track for the inspiration
 - Coinbase OnchainKit for seamless Web3 integration
 - Advanced AI technologies for content generation
 - The retro-futuristic design community
 
-Happy building! 🧪✨
+Happy building!
