@@ -4,7 +4,7 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Deployed-green)](https://mstarrobotics.github.io/Fractal-Recipe-Generator/)
 [![Vite](https://img.shields.io/badge/Vite-5.4.8-blue)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-19.2.0-blue)](https://reactjs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 Fractal Recipe is a retro-futuristic AI cooking companion handcrafted by the team to anchor every synthesized recipe on **Base Sepolia** for the Base Batches Builder Track. The UI/UX remains pixel-perfect to the provided reference while fulfilling the onchain requirements (wallet connect, contract writes, cookbook reads, Basename resolution, and traceable transaction history).
 
@@ -14,7 +14,7 @@ Visit the live application: [https://mstarrobotics.github.io/Fractal-Recipe-Gene
 
 ## ✨ Features
 
-- **AI-Powered Recipe Generation**: Uses Google Gemini AI to create unique fractal-inspired recipes
+- **AI-Powered Recipe Generation**: Creates unique fractal-inspired recipes using advanced AI
 - **Onchain Recipe Storage**: Every recipe is anchored on Base Sepolia blockchain
 - **Wallet Integration**: Connect MetaMask wallet for onchain interactions
 - **Basename Resolution**: Supports Coinbase Basenames for user identification
@@ -29,7 +29,7 @@ Visit the live application: [https://mstarrobotics.github.io/Fractal-Recipe-Gene
 - **Build Tool**: Vite 5.4.8
 - **Styling**: Tailwind CSS with custom arcade theme
 - **Web3**: OnchainKit, viem, wagmi
-- **AI**: Google Generative AI (Gemini)
+- **AI**: Advanced generative AI for content creation
 - **Blockchain**: Solidity contracts on Base Sepolia
 - **Deployment**: GitHub Pages with GitHub Actions CI/CD
 
@@ -64,7 +64,7 @@ cp .env.example .env.local
 
 | Variable | Description |
 | --- | --- |
-| `GEMINI_API_KEY` | Existing key for Gemini content generation (already referenced by the AI services). |
+| `GEMINI_API_KEY` | API key for AI content generation services. |
 | `VITE_PUBLIC_ONCHAINKIT_API_KEY` | Client key from the [Coinbase Developer Platform](https://portal.cdp.coinbase.com/). Required for OnchainKit wallet + Basename services. |
 | `VITE_BASE_RPC_URL` | Base Sepolia RPC URL (defaults to `https://sepolia.base.org`). Alternate RPCs can be added here. |
 | `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS` | Deployed `FractalRecipeRegistry` contract address on Base Sepolia. |
@@ -125,7 +125,7 @@ The project is configured for automatic deployment to GitHub Pages via GitHub Ac
 ## 📱 Frontend Wallet Experience
 
 - A small **CONNECT WALLET** control (top-right) adds/switches to Base Sepolia via MetaMask and resolves Basenames via OnchainKit when available.
-- `SYNTHESIZE RECIPE` now requires a connected wallet; after Gemini generates the payload, the dApp encodes metadata and invokes `storeRecipe`.
+- `SYNTHESIZE RECIPE` now requires a connected wallet; after AI generates the payload, the dApp encodes metadata and invokes `storeRecipe`.
 - The **Cookbook** modal merges local drafts with onchain entries, tagging onchain rows, surfacing transaction links, and allowing read-only viewing.
 
 ## 📋 Submission Checklist
@@ -148,13 +148,13 @@ Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full B
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
 - Base Batches Builder Track for the inspiration
 - Coinbase OnchainKit for seamless Web3 integration
-- Google Gemini AI for recipe generation
+- Advanced AI technologies for content generation
 - The retro-futuristic design community
 
 Happy building! 🧪✨
