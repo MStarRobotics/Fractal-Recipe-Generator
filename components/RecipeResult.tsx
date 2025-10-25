@@ -617,24 +617,46 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 
 export default RecipeResult;
 
-// Simple URL sanitization to avoid dangerous protocols
+// Robust URL sanitization to avoid dangerous protocols (XSS mitigation, see https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/src#security_considerations)
 function sanitizeUrl(raw: string): string {
+  if (typeof raw !== 'string' || !raw.trim()) return '';
+  // Allow only full-match data:image/ URLs (strict regex), blob:, http(s): 
+  const trimmed = raw.trim();
+  // Data-URI for images (base64 or URL-encoded, as per RFC), case-insensitive match
+  if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('blob:')) {
+    try {
+      // New URL() will throw if not a valid URL relative to current origin
+      const blobUrl = new URL(trimmed, window.location.origin);
+      if (blobUrl.protocol === 'blob:') return blobUrl.toString();
+    } catch {
+      // Invalid, fallthrough
+    }
+    return '';
+  }
   try {
-    // Allow blob, data (images), http, https
-    if (raw.startsWith('blob:') || raw.startsWith('data:image/')) return raw;
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+    const urlObj = new URL(trimmed, window.location.origin);
+    if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') return urlObj.toString();
   } catch {
-    // fallthrough
+    // Invalid URL
   }
   return '';
 }
 
 function getSafeImageSrc(raw: string | undefined | null): string | undefined {
-  if (!raw) return undefined;
+  if (!raw || typeof raw !== 'string') return undefined;
   const safe = sanitizeUrl(raw);
   if (!safe) return undefined;
-  // Whitelist data:image/*, blob:, http(s)
-  if (safe.startsWith('data:image/') || safe.startsWith('blob:') || safe.startsWith('http')) return safe;
+  // Only allow data:image/*, blob:, http(s) URLs
+  if (
+    safe.startsWith('data:image/') ||
+    safe.startsWith('blob:') ||
+    safe.startsWith('http://') ||
+    safe.startsWith('https://')
+  ) {
+    return safe;
+  }
   return undefined;
 }
