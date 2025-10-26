@@ -26,16 +26,22 @@ interface RecipeResultProps {
 }
 
 // Helper to determine if a user-provided image URL is safe for use in src attribute
-function isSafeImageUrl(url: string | undefined | null): boolean {
+function isSafeImageUrl(url: string | undefined | null, allowedHostnames: string[] = []): boolean {
   if (!url || typeof url !== "string") return false;
-  // allow https URLs and data:image/ URLs only
   try {
-    // Check for data:image/ base64 strings
-    if (url.startsWith("data:image/")) return true;
+    // Allow data:image/ URLs only if not from untrusted input (i.e. allowedHostnames.length === 0, meaning locally uploaded)
+    if (url.startsWith("data:image/")) {
+      return allowedHostnames.length === 0; // Only allow if *not* from external input
+    }
     const parsed = new URL(url, window.location.origin);
-    // Only accept https: or http: protocols
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") return true;
-    return false;
+    // Only accept https: protocol and allowlisted hostnames
+    if (parsed.protocol !== "https:") return false;
+    if (allowedHostnames.length === 0) return true;
+    // Check hostname against the allowlist
+    return allowedHostnames.some((host) =>
+      parsed.hostname === host ||
+      parsed.hostname.endsWith(`.${host}`)
+    );
   } catch {
     // If parsing fails (e.g. for relative paths), reject
     return false;
@@ -478,7 +484,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                     src={
                       uploadedImage?.url && isSafeImageUrl(uploadedImage.url)
                         ? uploadedImage.url
-                        : isSafeImageUrl(imageUrl)
+                        : isSafeImageUrl(
+                            imageUrl,
+                            // Trusted hostnames list; edit as necessary:
+                            ["storage.googleapis.com", "your-cdn-domain.com"]
+                          )
                         ? imageUrl
                         : ""
                     }
