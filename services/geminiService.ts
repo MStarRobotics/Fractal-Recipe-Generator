@@ -3,7 +3,24 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { RecipeFormData, SavedRecipe, Recipe } from '../types';
 import { THEME_PROMPTS } from '../constants';
 
-const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const viteGeminiKey = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_GEMINI_API_KEY : undefined;
+const nodeGeminiKey =
+  typeof process !== 'undefined'
+    ? process.env.VITE_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY
+    : undefined;
+
+const GEMINI_API_KEY = viteGeminiKey ?? nodeGeminiKey;
+
+const assertGeminiKey = () => {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Gemini API key missing. Set VITE_GEMINI_API_KEY in your environment before using AI features.');
+  }
+};
+
+const getAi = () => {
+  assertGeminiKey();
+  return new GoogleGenAI({ apiKey: GEMINI_API_KEY! });
+};
 
 const recipeSchema = {
   type: Type.OBJECT,
@@ -179,7 +196,8 @@ export const generateRecipeVideo = async (
     }
 
     // 4. Fetch the video file
-    const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+  assertGeminiKey();
+  const response = await fetch(`${downloadLink}&key=${GEMINI_API_KEY}`);
     if (!response.ok) {
         if (response.status === 404 || response.status === 403) {
              throw new Error("API KEY ERROR: Your key may be invalid or missing permissions. Please select a valid key and try again.");
@@ -240,8 +258,8 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
       contents: { parts: [textPart, audioPart] },
     });
 
-    const transcription = response.text;
-    return transcription.trim();
+  const transcription = response.text ?? '';
+  return transcription.trim();
   } catch (error) {
     console.error("Error transcribing audio:", error);
     return ""; // Return empty string on failure to not block video generation

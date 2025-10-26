@@ -6,20 +6,40 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test:e2e-auth": "node scripts/e2e-auth-smoke.mjs"
   },
   "dependencies": {
+    "@coinbase/onchainkit": "^0.38.15",
+    "@google/genai": "^1.24.0",
+    "@tanstack/react-query": "^5.62.8",
+    "argon2": "^0.41.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "firebase": "^12.4.0",
+    "firebase-admin": "^13.5.0",
+  "dotenv": "^16.4.5",
+  "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.23.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@google/genai": "^1.24.0",
-    "@coinbase/onchainkit": "^0.38.15",
-    "@tanstack/react-query": "^5.62.8",
     "viem": "^2.9.20",
     "wagmi": "^2.13.3"
   },
   "devDependencies": {
+    "typescript-eslint": "^8.16.0",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "@eslint/js": "^9.13.0",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.12.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

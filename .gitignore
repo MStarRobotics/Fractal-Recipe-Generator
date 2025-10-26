@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+
+# Firebase service account (keep out of git)
+zero-e6888-firebase-adminsdk-fbsvc-c1f10a9df2.json
 
 # Editor directories and files
 .vscode/*

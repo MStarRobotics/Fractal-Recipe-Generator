@@ -82,7 +82,7 @@ const SavedRecipesModal: React.FC<SavedRecipesModalProps> = ({ recipes, onClose,
           </div>
         ) : analysisResult ? (
           <div className="animate-fade-in">
-            <div className="retro-terminal max-h-[50vh] overflow-y-auto" style={{marginTop: 0}}>
+            <div className="retro-terminal max-h-[50vh] overflow-y-auto mt-0">
               <h4>SYSTEM ANALYSIS OF COOKBOOK_V2.0:</h4>
               <p>{analysisResult.split('\n').map((line, i) => <React.Fragment key={i}>{line}<br/></React.Fragment>)}</p>
             </div>
