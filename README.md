@@ -1,160 +1,151 @@
 # Fractal Recipe Generator
 
-[![Build Status](https://github.com/MStarRobotics/Fractal-Recipe-Generator/actions/workflows/deploy.yml/badge.svg)](https://github.com/MStarRobotics/Fractal-Recipe-Generator/actions/workflows/deploy.yml)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Deployed-green)](https://mstarrobotics.github.io/Fractal-Recipe-Generator/)
-[![Vite](https://img.shields.io/badge/Vite-5.4.8-blue)](https://vitejs.dev/)
-[![React](https://img.shields.io/badge/React-19.2.0-blue)](https://reactjs.org/)
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![CI](https://github.com/MStarRobotics/Fractal-Recipe-Generator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MStarRobotics/Fractal-Recipe-Generator/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/MStarRobotics/Fractal-Recipe-Generator/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/MStarRobotics/Fractal-Recipe-Generator/actions/workflows/codeql.yml)
+[![Vite](https://img.shields.io/badge/Vite-Build-blue)](https://vitejs.dev)
+[![React](https://img.shields.io/badge/React-19-blue)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org)
+[![Base Sepolia](https://img.shields.io/badge/Base-Sepolia-2b6cff)](https://www.base.org)
+[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey)](LICENSE.md)
 
-Fractal Recipe is a retro-futuristic AI cooking companion handcrafted by the team to anchor every synthesized recipe on **Base Sepolia** for the Base Batches Builder Track. The UI/UX remains pixel-perfect to the provided reference while fulfilling the onchain requirements (wallet connect, contract writes, cookbook reads, Basename resolution, and traceable transaction history).
+Retro‑arcade web app that generates recipes with AI and anchors them on‑chain. MetaMask (SIWE) + Google sign‑in, built with Vite + React, viem/wagmi, and a tiny Express auth server.
 
-## Live Demo
-
-Visit the live application: [https://mstarrobotics.github.io/Fractal-Recipe-Generator/](https://mstarrobotics.github.io/Fractal-Recipe-Generator/)
-
-## Features
-
-- **AI-Powered Recipe Generation**: Creates unique fractal-inspired recipes using advanced AI
-- **Onchain Recipe Storage**: Every recipe is anchored on Base Sepolia blockchain
-- **Wallet Integration**: Connect MetaMask wallet for onchain interactions
-- **Basename Resolution**: Supports Coinbase Basenames for user identification
-- **Lifetime Membership**: Pay once (0.01 ETH) for unlimited recipe synthesis
-- **Cookbook Management**: Merge local drafts with onchain recipes
-- **Retro-Futuristic UI**: Pixel-perfect arcade aesthetic with neon effects
-- **Video Generation**: Create cooking videos with AI-generated content
-
-## Tech Stack
-
-- **Frontend**: React 19.2.0 with TypeScript
-- **Build Tool**: Vite 5.4.8
-- **Styling**: Tailwind CSS with custom arcade theme
-- **Web3**: OnchainKit, viem, wagmi
-- **AI**: Advanced generative AI for content creation
-- **Blockchain**: Solidity contracts on Base Sepolia
-- **Deployment**: GitHub Pages with GitHub Actions CI/CD
-
-## Prerequisites
-
-- Node.js (v18 or higher)
-- MetaMask wallet
-- Base Sepolia testnet ETH (for membership and transactions)
-
-## Getting Started
-
-### 1. Clone the repository
+## Quick start
 
 ```bash
-git clone https://github.com/MStarRobotics/Fractal-Recipe-Generator.git
-cd Fractal-Recipe-Generator
-```
-
-### 2. Install dependencies
-
-```bash
+# Install
 npm install
-```
 
-### 3. Configure environment variables
+# Dev (frontend)
+npm run dev   # http://localhost:5173
 
-Copy the template and populate the required values:
+# Auth server (optional: wallet JWT + Firebase custom tokens)
+npm run server  # http://localhost:4000
 
-```bash
-cp .env.example .env.local
-```
-
-| Variable | Description |
-| --- | --- |
-| `GEMINI_API_KEY` | API key for AI content generation services. |
-| `VITE_PUBLIC_ONCHAINKIT_API_KEY` | Client key from the [Coinbase Developer Platform](https://portal.cdp.coinbase.com/). Required for OnchainKit wallet + Basename services. |
-| `VITE_BASE_RPC_URL` | Base Sepolia RPC URL (defaults to `https://sepolia.base.org`). Alternate RPCs can be added here. |
-| `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS` | Deployed `FractalRecipeRegistry` contract address on Base Sepolia. |
-| `VITE_FRACTAL_RECIPE_DEPLOY_BLOCK` | (Optional) Block height where the registry was deployed. Speeds up event log queries. |
-
-### 4. Run locally
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) (or the URL printed by Vite). Connect MetaMask, switch/add Base Sepolia when prompted, and synthesize a recipe to push an onchain record.
-
-### 5. Build for production
-
-```bash
+# Build
 npm run build
 ```
 
-The built files will be in the `dist/` directory, ready for deployment.
+## Features
 
-## Onchain Architecture
+- AI recipe generation with a retro UI.
+- On‑chain registry on Base Sepolia (lifetime membership model).
+- MetaMask sign‑in (SIWE) + Google sign‑in (Firebase or Google Identity fallback).
+- Video trailer maker (image + voiceover), local drafts, and cookbook.
 
-| File | Purpose |
-| --- | --- |
-| [`contracts/FractalRecipeRegistry.sol`](contracts/FractalRecipeRegistry.sol) | Registry that enforces a one-time lifetime membership (0.01 ETH) before anchoring recipe metadata and emits `RecipeSynthesized` plus `LifetimeMembershipPurchased` events. |
-| [`contracts/fractalRecipeRegistryAbi.ts`](contracts/fractalRecipeRegistryAbi.ts) | Type-safe ABI, including membership helpers, consumed by the frontend. |
-| [`services/baseRegistry.ts`](services/baseRegistry.ts) | Wallet orchestration, Base Sepolia RPC management, membership price lookup/purchase, transaction submission, Basename lookup, and cookbook sync. |
-| [`utils/metadata.ts`](utils/metadata.ts) | Base64 data-URI encoding/decoding for recipe payloads. |
+## Quality gates
 
-## Deployment Flow
+Build: PASS
 
-### Smart Contract Deployment
+Lint/Typecheck: PASS
 
-- **Step 1 – Deploy the registry:** Compile and deploy the contract on Base Sepolia (Hardhat, Foundry, or Remix).
-  - Example with Foundry (assuming `forge` is installed):
+Security scan (CodeQL): ENABLED
 
-    ```bash
-    forge create --rpc-url https://sepolia.base.org --private-key <PRIVATE_KEY> contracts/FractalRecipeRegistry.sol:FractalRecipeRegistry
-    ```
+## Configure
 
-- **Step 2 – Verify on BaseScan:** Submit the flattened source to [BaseScan (Sepolia)](https://sepolia.basescan.org/verifyContract) for verification.
-- **Step 3 – Wire up the frontend:** Record the contract address in `.env.local` as `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS` (and optionally the deployment block).
-- **Step 4 – Trigger an interaction:** Run `npm run dev` locally and use `SYNTHESIZE RECIPE` to log the first onchain transaction (MetaMask will automatically prompt to add/switch chains).
-- **Step 5 – Archive proof:** Keep the resulting transaction hash for submission documentation; it is also persisted to localStorage (`fractalLastTx`).
+Copy `.env.example` to `.env` (kept local; ignored by git) and set the values you use:
 
-### Frontend Deployment
+- Frontend: `VITE_BASE_RPC_URL`, `VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS`, `VITE_FRACTAL_RECIPE_DEPLOY_BLOCK`, `VITE_PUBLIC_ONCHAINKIT_API_KEY`, optional Firebase client keys (`VITE_FIREBASE_*`), and `VITE_GEMINI_API_KEY` (for all Gemini-powered features).
+- Auth server: `PORT`, `JWT_SECRET`, `JWT_TTL_SECONDS`, `CORS_ORIGIN` plus the Firebase Admin trio `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`. Store the private key in an env var with escaped newlines (`\n`)—never commit the JSON file. Optional: `GOOGLE_OAUTH_CLIENT_ID`, `PASSWORD_MIN_LENGTH`, `PWD_RESET_OTP_TTL_MS`, `PWD_RESET_MAX_ATTEMPTS` to tune password policy and OTP behaviour.
 
-The project is configured for automatic deployment to GitHub Pages via GitHub Actions. Push to the `main` branch to trigger deployment.
+Once the env vars exist locally, mirror any production secrets inside **Settings → Secrets and variables → Actions** so GitHub workflows can build without exposing keys.
 
-## Lifetime Membership Model
+Security hardening defaults:
+- Express sets strict CORS allowlist via `CORS_ORIGIN`
+- Helmet is enabled for secure HTTP headers (CSP disabled by default to simplify local dev)
+- Rate limiting and tight JSON body size limit (50 KB)
+- Zod input validation on all credential endpoints
+- JWT sessions are short‑lived; maintain strong `JWT_SECRET`
 
-- Lifetime access costs **0.01 ETH** (configurable via the `LIFETIME_MEMBERSHIP_PRICE` constant) and is paid in Base Sepolia ETH.
-- A **Lifetime Membership** panel (bottom-left of the UI) explains benefits and launches the `purchaseLifetimeMembership` transaction flow.
-- Recipe synthesis is gated to active members. Non-members are prompted to purchase before new onchain entries are written.
-- Contract owners can withdraw collected membership funds via the `withdraw(address)` helper once satisfied with accrued proceeds.
+### Firebase Admin key placement
 
-## Frontend Wallet Experience
+1. In the Firebase console create a service-account key (JSON).
+2. Copy the `project_id`, `client_email`, and `private_key` values into your `.env` file as shown above. Replace real line breaks in the private key with `\n` so Node.js can reconstruct the value.
+3. Keep the JSON off disk (or store it outside the repo) and never commit it. The server reconstructs the credentials at runtime from the environment variables.
 
-- A small **CONNECT WALLET** control (top-right) adds/switches to Base Sepolia via MetaMask and resolves Basenames via OnchainKit when available.
-- `SYNTHESIZE RECIPE` now requires a connected wallet; after AI generates the payload, the dApp encodes metadata and invokes `storeRecipe`.
-- The **Cookbook** modal merges local drafts with onchain entries, tagging onchain rows, surfacing transaction links, and allowing read-only viewing.
+### Email + phone credential helpers
 
-## Submission Checklist
+The auth server now exposes secure helpers backed by Firebase Admin + Firestore:
 
-Refer to [`BASE_BATCHES_CHECKLIST.md`](BASE_BATCHES_CHECKLIST.md) for the full Builder Track requirements distilled into executable steps (deployment proof, repo hygiene, demo video, and compliance notes).
+- `POST /auth/register/email` – store an email/password/phone triple (password is Argon2id-hashed).
+- `POST /auth/login/email` – verify credentials and return a JWT session.
+- `POST /auth/password/request-otp` – create a short-lived OTP for a phone number (integrate an SMS provider to deliver it).
+- `POST /auth/password/reset` – verify the OTP and set a new password.
 
-### Documentation Expectations
+OTP codes are logged to the server console only while `NODE_ENV !== 'production'` to assist local testing.
 
-- Include deployment details (contract address, tx hash) and a short Loom walkthrough (≥1 minute) when submitting.
-- Acknowledge OFAC/Devfolio/Base terms inside your project README or submission deck.
-- Ensure at least one successful Base Sepolia transaction prior to October 24 and provide the transaction link.
+### Firebase Authentication SDK (client)
 
-## Contributing
+If you want the “real” Firebase Auth experience in the browser (recommended), fill the `VITE_FIREBASE_*` variables and enable providers in Firebase Console:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- Email/password
+- Federated GitHub (create a GitHub OAuth app and paste the client/secret in Firebase console)
+- Phone number (configure reCAPTCHA v2 site key and set it to `VITE_FIREBASE_RECAPTCHA_SITE_KEY`)
+- Anonymous
+
+The client exposes helpers in `services/firebaseClient.ts`:
+
+- `createUserWithEmail(email, password)` and `signInWithEmail(email, password)`
+- `signInWithGithubPopup()`
+- `signInWithPhoneNumber(phone, recaptchaContainerId)` (uses `RecaptchaVerifier`)
+- `signInAnonymouslyClient()`
+- `firebaseSignOut()`
+
+These can be wired into UI buttons as needed. For SMS delivery of OTP in server flows, integrate Twilio or a similar provider; the server currently returns a demo OTP in development.
+
+## How to operate and run
+
+1) Install toolchain and dependencies
+```bash
+npm ci
+```
+
+2) Populate `.env` (copy from `.env.example`). For Firebase Admin, escape newlines in `FIREBASE_PRIVATE_KEY` using `\n`.
+
+3) Local quality gates
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+4) Start backend and frontend (separate terminals)
+```bash
+npm run server    # http://localhost:4000
+npm run dev       # http://localhost:5173
+```
+
+5) Test APIs quickly (optional)
+```bash
+curl http://localhost:4000/health
+```
+
+6) E2E auth smoke test (server must be running)
+```bash
+npm run test:e2e-auth
+```
+
+Postman:
+- Import `postman/FractalAuth.postman_collection.json`
+- Set `baseUrl` to your server (default `http://localhost:4000`)
+- Use `token` variable after logging in to call protected endpoints
+
+Secrets hygiene:
+- `.env` and service-account JSON must not be committed (already git-ignored).
+- Use GitHub Actions Secrets for CI.
+- Rotate leaked keys immediately.
+
+## Stack
+
+Vite + React + TypeScript • Tailwind • viem/wagmi • OnchainKit • Express • Firebase (client/admin) • Google Identity Services.
+
+## Security notes
+
+- `.env`, `.env.*` are git‑ignored. Use `.env.example` for placeholders.
+- Auth server signs short‑lived JWTs. Keep `JWT_SECRET` strong. Never commit real secrets.
+- Client sanitizes image URLs used in previews.
+- Service‑account JSON is git‑ignored; prefer env variables over storing the JSON on disk.
+- Enable GitHub’s secret scanning and CodeQL (workflows included).
 
 ## License
-
-This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Base Batches Builder Track for the inspiration
-- Coinbase OnchainKit for seamless Web3 integration
-- Advanced AI technologies for content generation
-- The retro-futuristic design community
-
-Happy building!
+Creative Commons BY‑NC‑SA 4.0. See `LICENSE.md`.

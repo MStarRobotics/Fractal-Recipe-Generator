@@ -63,7 +63,7 @@ const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob =
   return new Blob(byteArrays, { type: contentType });
 };
 
-const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }) => {
+const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }: RecipeResultProps) => {
   const [videoGenerationStep, setVideoGenerationStep] = React.useState<'idle' | 'generating'>('idle');
   const [videoLoadingMessage, setVideoLoadingMessage] = React.useState(VIDEO_GENERATION_MESSAGES[0]);
   const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
@@ -79,6 +79,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   const [transcribedText, setTranscribedText] = React.useState<string | null>(null);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const [selectedTheme, setSelectedTheme] = React.useState<string>('None');
+  const uploadedImageUrl = uploadedImage?.url ?? null;
+  const safeImageSrc = React.useMemo(
+    () => getSafeImageSrc(uploadedImageUrl ?? imageUrl),
+    [uploadedImageUrl, imageUrl]
+  );
 
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -118,11 +123,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       }
     );
 
-    instructionElements.forEach((instruction) => observer.observe(instruction));
+  instructionElements.forEach((instruction: Element) => observer.observe(instruction));
 
     // Cleanup function to unobserve elements when the component/recipe changes.
     return () => {
-      instructionElements.forEach((instruction) => observer.unobserve(instruction));
+  instructionElements.forEach((instruction: Element) => observer.unobserve(instruction));
     };
   }, [recipe]); // This effect only depends on the recipe changing.
 
@@ -209,7 +214,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
         mediaRecorderRef.current = new MediaRecorder(stream);
         
         const localAudioChunks: Blob[] = [];
-        mediaRecorderRef.current.ondataavailable = (event) => {
+  mediaRecorderRef.current.ondataavailable = (event: BlobEvent) => {
           localAudioChunks.push(event.data);
         };
         
@@ -276,7 +281,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     playSound('record-stop-sound');
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+  mediaRecorderRef.current.stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
       setIsRecording(false);
     }
   };
@@ -302,7 +307,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       setVideoLoadingMessage(VIDEO_GENERATION_MESSAGES[0]);
 
       messageInterval = window.setInterval(() => {
-        setVideoLoadingMessage(prev => {
+        setVideoLoadingMessage((prev: string) => {
           const currentIndex = VIDEO_GENERATION_MESSAGES.indexOf(prev);
           const nextIndex = (currentIndex + 1) % VIDEO_GENERATION_MESSAGES.length;
           return VIDEO_GENERATION_MESSAGES[nextIndex];
@@ -344,26 +349,32 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     const text = `Check out this recipe for "${recipe.dishName}" I generated with the Fractal Recipe Generator! #AI #Gemini`;
 
     if (platform === 'twitter') {
-      const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-      window.open(twitterUrl, '_blank', 'noopener,noreferrer');
+      const shareUrl = new URL('https://twitter.com/intent/tweet');
+      shareUrl.searchParams.set('url', url);
+      shareUrl.searchParams.set('text', text);
+      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
       return;
     }
 
     if (platform === 'facebook') {
-      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-      window.open(facebookUrl, '_blank', 'noopener,noreferrer');
+      const shareUrl = new URL('https://www.facebook.com/sharer/sharer.php');
+      shareUrl.searchParams.set('u', url);
+      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
       return;
     }
 
     if (platform === 'copy') {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopyStatus('LINK COPIED!');
-        setTimeout(() => setCopyStatus(''), 2000);
-      }).catch(err => {
-        console.error("Failed to copy link: ", err);
-        setCopyStatus('COPY FAILED');
-        setTimeout(() => setCopyStatus(''), 2000);
-      });
+      navigator.clipboard
+        .writeText(url)
+        .then(() => {
+          setCopyStatus('LINK COPIED!');
+          setTimeout(() => setCopyStatus(''), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy link: ', err);
+          setCopyStatus('COPY FAILED');
+          setTimeout(() => setCopyStatus(''), 2000);
+        });
     }
   };
   
@@ -465,36 +476,23 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                   onMouseEnter={() => setShowControls(true)}
                   onMouseLeave={() => setShowControls(false)}
                 >
-                    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" />
+                    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" aria-label="Generated recipe video" />
                     <audio ref={audioRef} src={recordedAudioUrl || ''} loop />
                      <div className={`video-controls-overlay ${showControls || !isPlaying ? 'visible' : ''}`} onClick={togglePlayPause}>
                         <button className="video-control-button text-4xl">{isPlaying ? '❚❚' : '►'}</button>
-                        <input
+                <input
                            type="range" min="0" max="1" step="0.05"
                            value={volume}
                            onChange={handleVolumeChange}
-                           onClick={(e) => e.stopPropagation()}
+                           onClick={(event: React.MouseEvent<HTMLInputElement>) => event.stopPropagation()}
                            className="volume-slider"
+                  aria-label="Video and audio volume"
                         />
                      </div>
                 </div>
             ) : (
                 <>
-                  <img
-                    src={
-                      uploadedImage?.url && isSafeImageUrl(uploadedImage.url)
-                        ? uploadedImage.url
-                        : isSafeImageUrl(
-                            imageUrl,
-                            // Trusted hostnames list; edit as necessary:
-                            ["storage.googleapis.com", "your-cdn-domain.com"]
-                          )
-                        ? imageUrl
-                        : ""
-                    }
-                    alt={recipe.dishName}
-                    className="w-full aspect-square object-cover recipe-image-retro"
-                  />
+
                    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
                       <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
                       <div className="flex items-center gap-2">
@@ -530,11 +528,12 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                                 setSelectedTheme(name);
                               }}
                             >
-                              <div
-                                className="theme-item-preview"
-                                style={{ backgroundImage: url ? `url(${url})` : 'none' }}
-                              >
-                                {url === '' && <span className="material-symbols-outlined">block</span>}
+                              <div className="theme-item-preview">
+                                {url ? (
+                                  <img src={sanitizeUrl(url)} alt={`${name} preview`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="material-symbols-outlined">block</span>
+                                )}
                               </div>
                               <div className="theme-item-name">{name}</div>
                             </div>
@@ -615,8 +614,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                   {recipe.instructions.map((step, i) => (
                     <li 
                       key={i} 
-                      className="instruction-step" 
-                      style={{ transitionDelay: `${i * 150}ms` }}
+                      className={`instruction-step delay-step-${i % 24}`}
                     >
                       {step}
                     </li>
@@ -637,3 +635,25 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 };
 
 export default RecipeResult;
+
+// Simple URL sanitization to avoid dangerous protocols
+function sanitizeUrl(raw: string): string {
+  try {
+    // Allow blob, data (images), http, https
+    if (raw.startsWith('blob:') || raw.startsWith('data:image/')) return raw;
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+  } catch {
+    // fallthrough
+  }
+  return '';
+}
+
+function getSafeImageSrc(raw: string | undefined | null): string | undefined {
+  if (!raw) return undefined;
+  const safe = sanitizeUrl(raw);
+  if (!safe) return undefined;
+  // Whitelist data:image/*, blob:, http(s)
+  if (safe.startsWith('data:image/') || safe.startsWith('blob:') || safe.startsWith('http')) return safe;
+  return undefined;
+}

@@ -36,3 +36,11 @@ export interface SavedRecipe {
 }
 
 export type LoadingState = 'idle' | 'recipe' | 'transition' | 'image';
+
+export interface AuthProfile {
+  address: string;
+  linkedGoogleId: string | null;
+  wallets: string[];
+  email?: string | null;
+  displayName?: string | null;
+}

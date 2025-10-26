@@ -40,74 +40,91 @@ interface BranchCubeProps {
   isDuplicate: boolean;
 }
 
+const BRANCH_VARIANTS = [
+  { wrapperClass: 'branch-variant-a', rotationClass: 'branch-rotation-slow' },
+  { wrapperClass: 'branch-variant-b', rotationClass: 'branch-rotation-medium' },
+  { wrapperClass: 'branch-variant-c', rotationClass: 'branch-rotation-fast' },
+  { wrapperClass: 'branch-variant-d', rotationClass: 'branch-rotation-medium' },
+  { wrapperClass: 'branch-variant-e', rotationClass: 'branch-rotation-slow' },
+  { wrapperClass: 'branch-variant-f', rotationClass: 'branch-rotation-fast' },
+  { wrapperClass: 'branch-variant-g', rotationClass: 'branch-rotation-medium' },
+  { wrapperClass: 'branch-variant-h', rotationClass: 'branch-rotation-slow' },
+] as const;
+
 const BranchCube: React.FC<BranchCubeProps> = ({ ingredient, index, onDelete, playSound, isDuplicate }) => {
   const [isMounted, setIsMounted] = React.useState(false);
+  const variant = React.useMemo(
+    () => BRANCH_VARIANTS[Math.floor(Math.random() * BRANCH_VARIANTS.length)],
+    []
+  );
+
   React.useEffect(() => {
-    // A small delay ensures the transition triggers correctly on mount.
-    const timer = setTimeout(() => setIsMounted(true), 10); 
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => setIsMounted(true), 10);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  const [position] = React.useState(() => {
-    const distance = 180 + Math.random() * 40;
-    const theta = Math.random() * 2 * Math.PI; // Azimuthal angle [0, 2π]
-    const phi = Math.acos(2 * Math.random() - 1); // Polar angle [0, π] for uniform distribution
-    const x = distance * Math.sin(phi) * Math.cos(theta);
-    const y = distance * Math.sin(phi) * Math.sin(theta);
-    const z = distance * Math.cos(phi);
-    return { x, y, z };
-  });
+  const wrapperClassName = [
+    'fractal-branch absolute branch-generated',
+    variant.wrapperClass,
+    isMounted ? 'branch-entered' : 'branch-entering',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-  const [rotation] = React.useState(() => ({
-    x: Math.random() * 360,
-    y: Math.random() * 360,
-    duration: 25 + Math.random() * 10, // Slower and more varied rotation
-  }));
-
-  // Initial rotation for the pop-in effect
-  const [entryRotation] = React.useState(() => ({
-    x: 60 * (Math.random() - 0.5), // Refined: A slighter, gentler rotation from -30 to +30 degrees.
-    y: 60 * (Math.random() - 0.5), // Refined: A slighter, gentler rotation from -30 to +30 degrees.
-  }));
+  const cubeClassName = [
+    'cube branch-cube',
+    variant.rotationClass,
+    isDuplicate ? 'animate-glitch-error' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <div
-      className="fractal-branch absolute"
-      style={{
-        opacity: isMounted ? 1 : 0,
-        // Refined: Start scale at 0 for a more pronounced 'pop-in' effect.
-        transform: `translate3d(${position.x}px, ${position.y}px, ${position.z}px) rotateX(${isMounted ? 0 : entryRotation.x}deg) rotateY(${isMounted ? 0 : entryRotation.y}deg) scale(${isMounted ? 1 : 0})`,
-      }}
-    >
-      <div className={`cube ${isDuplicate ? 'animate-glitch-error' : ''}`} style={{ width: '80px', height: '80px', animation: `rotateCube ${rotation.duration}s infinite linear`}}>
-        {[
-          { name: 'front', transform: 'rotateY(0deg) translateZ(40px)', content: ingredient.toUpperCase() },
-          { name: 'back', transform: 'rotateY(180deg) translateZ(40px)', content: `[${index}]` },
-          { name: 'right', transform: 'rotateY(90deg) translateZ(40px)', content: '...' },
-          { name: 'left', transform: 'rotateY(-90deg) translateZ(40px)', content: '...' },
-          { name: 'top', transform: 'rotateX(90deg) translateZ(40px)', content: '...' },
-          { name: 'bottom', transform: 'rotateX(-90deg) translateZ(40px)', content: '...' },
-        ].map((face) => (
-          <div key={face.name} className="cube-face text-xs" style={{ ...face, width: '80px', height: '80px' }}>
-            <div className="cube-face-inner p-1 text-center break-all">
-                {face.name === 'top' ? (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(index); 
-                      playSound();
-                    }} 
-                    className="arcade-close-button !relative !transform-none !top-auto !right-auto"
-                    aria-label={`Delete ${ingredient}`}
-                  >
-                    X
-                  </button>
-                ) : (
-                  face.content
-                )}
+    <div className={wrapperClassName}>
+      <div className={cubeClassName}>
+        <div className="cube-face branch-face branch-face-front text-xs">
+          <div className="cube-face-inner branch-face-inner">
+            {ingredient.toUpperCase()}
+          </div>
+        </div>
+        <div className="cube-face branch-face branch-face-back text-xs">
+          <div className="cube-face-inner branch-face-inner">[{index}]</div>
+        </div>
+        <div className="cube-face branch-face branch-face-right text-xs">
+          <div className="cube-face-inner branch-face-inner">...</div>
+        </div>
+        <div className="cube-face branch-face branch-face-left text-xs">
+          <div className="cube-face-inner branch-face-inner">...</div>
+        </div>
+        <div className="cube-face branch-face branch-face-top text-xs">
+          <div className="cube-face-inner branch-face-inner">
+            <button
+              onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                onDelete(index);
+                playSound();
+              }}
+              className="arcade-close-button cube-delete-button"
+              aria-label={`Delete ${ingredient}`}
+            >
+              X
+            </button>
+          </div>
+        </div>
+        <div className="cube-face branch-face branch-face-bottom text-xs">
+          <div className="cube-face-inner branch-face-inner branch-recycle-container">
+            <span className="material-symbols-outlined text-green-500 icon-pixel text-6xl animate-spin-slow reverse-spin">
+              recycling
+            </span>
+            <div className="recycle-letter-cloud">
+              {RECYCLE_CHARACTERS.map((char, idx) => (
+                <span key={idx} className={`pixel-font-small recycle-letter recycle-letter-${idx}`}>
+                  <span className="recycle-letter-inner">{char === ' ' ? '\u00A0' : char}</span>
+                </span>
+              ))}
             </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
@@ -139,6 +156,7 @@ const getIconForIngredient = (ingredient: string): string => {
 };
 
 const recycleText = "RECYCLE SCRAPS";
+const RECYCLE_CHARACTERS = recycleText.split('');
 
 const FractalCube: React.FC<FractalCubeProps> = ({
   formData,
@@ -162,8 +180,6 @@ const FractalCube: React.FC<FractalCubeProps> = ({
   const [countText, setCountText] = React.useState(
     formData.ingredients.length > 0 ? `${formData.ingredients.length} ITEM(S)` : 'EMPTY'
   );
-  const [recyclePhase, setRecyclePhase] = React.useState<'forming' | 'scattering' | 'drifting'>('forming');
-  const [scatterTransforms, setScatterTransforms] = React.useState<React.CSSProperties[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const cubeRef = React.useRef<HTMLDivElement>(null);
 
@@ -250,60 +266,7 @@ const FractalCube: React.FC<FractalCubeProps> = ({
     };
   }, [isRandomRotation]);
 
-  // Animation cycle manager for "Chaotic Reassembly"
-  React.useEffect(() => {
-    const SCATTER_TRANSITION_TIME = 2000;
-    const DRIFT_TIME = 5000;
-    const FORM_TIME = 3000;
-
-    let timer: number;
-
-    if (recyclePhase === 'forming') {
-      timer = window.setTimeout(() => {
-        // Generate new random transforms for the next scatter phase
-        const newTransforms = recycleText.split('').map(() => {
-          const x = (Math.random() - 0.5) * 200;
-          const y = (Math.random() - 0.5) * 200;
-          const z = (Math.random() - 0.5) * 150;
-          const rotX = (Math.random() - 0.5) * 720;
-          const rotY = (Math.random() - 0.5) * 720;
-          const rotZ = (Math.random() - 0.5) * 720;
-          return {
-            transform: `translate3d(${x}px, ${y}px, ${z}px) rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
-            opacity: 0.9,
-          };
-        });
-        setScatterTransforms(newTransforms);
-        setRecyclePhase('scattering');
-      }, FORM_TIME);
-    } else if (recyclePhase === 'scattering') {
-      timer = window.setTimeout(() => setRecyclePhase('drifting'), SCATTER_TRANSITION_TIME);
-    } else if (recyclePhase === 'drifting') {
-      timer = window.setTimeout(() => setRecyclePhase('forming'), DRIFT_TIME);
-    }
-
-    return () => clearTimeout(timer);
-  }, [recyclePhase]);
-
-  // Calculate the static "forming" styles
-  const formingStyles = React.useMemo(() => {
-      const styles: React.CSSProperties[] = [];
-      const charWidth = 12;
-      const totalWidth = recycleText.length * charWidth;
-      const startX = -(totalWidth / 2);
-      const amplitude = 8; // Sine wave amplitude
-      const frequency = 0.9; // Sine wave frequency
-
-      for (let i = 0; i < recycleText.length; i++) {
-        const x = startX + (i * charWidth);
-        const y = 75 + Math.sin(i * frequency) * amplitude; // Positioned at the bottom, staggered
-        styles.push({
-          transform: `translate3d(${x}px, ${y}px, 0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg)`,
-          opacity: 1,
-        });
-      }
-      return styles;
-  }, []);
+  // recycle animation now handled via CSS only
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -505,33 +468,17 @@ const FractalCube: React.FC<FractalCubeProps> = ({
           </div>
         </div>
         <div className="cube-face bottom animate-face-pulse">
-           <div className="cube-face-inner flex justify-center items-center" style={{ overflow: 'hidden', transformStyle: 'preserve-3d' }}>
-              <span className="material-symbols-outlined text-green-500 icon-pixel text-6xl animate-spin-slow" style={{ animationDirection: 'reverse', animationDuration: '15s' }}>
-                recycling
-              </span>
-              {recycleText.split('').map((char, i) => {
-                  const phase = recyclePhase;
-                  // The style is determined by the current phase of the animation cycle
-                  const style: React.CSSProperties = {
-                      ...(phase === 'forming' ? (formingStyles[i] || {}) : (scatterTransforms[i] || {})),
-                      // Transition properties are different for scattering vs. forming
-                      transition: phase === 'forming'
-                          ? `transform 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 1s ease-in`
-                          : `transform 2s cubic-bezier(0.25, 1, 0.5, 1), opacity 2s ease-out`,
-                  };
-
-                  return (
-                      <span
-                          key={i}
-                          className="pixel-font-small recycle-letter"
-                          style={style}
-                      >
-                          <span className={phase === 'drifting' ? 'is-drifting' : ''} style={{display: 'inline-block'}}>
-                            {char === ' ' ? '\u00A0' : char}
-                          </span>
-                      </span>
-                  );
-              })}
+          <div className="cube-face-inner branch-recycle-container">
+            <span className="material-symbols-outlined text-green-500 icon-pixel text-6xl animate-spin-slow reverse-spin">
+              recycling
+            </span>
+            <div className="recycle-letter-cloud">
+              {RECYCLE_CHARACTERS.map((char, idx) => (
+                <span key={idx} className={`pixel-font-small recycle-letter recycle-letter-${idx}`}>
+                  <span className="recycle-letter-inner">{char === ' ' ? '\u00A0' : char}</span>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
