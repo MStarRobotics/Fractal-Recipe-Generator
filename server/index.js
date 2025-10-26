@@ -675,7 +675,7 @@ app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit:
   }
 });
 
-app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 60 }), (req, res) => {
+app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, max: 60 }), (req, res) => {
   try {
     const normalizedAddress = normalizeAddress(req.auth.address);
     const walletRecord = buildWalletRecord(normalizedAddress);
@@ -697,7 +697,7 @@ app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, limi
   }
 });
 
-app.post('/auth/logout', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 60 }), (req, res) => {
+app.post('/auth/logout', authenticateRequest, rateLimit({ windowMs: 60_000, max: 60 }), (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader.slice('Bearer '.length);
   activeTokens.delete(token);
