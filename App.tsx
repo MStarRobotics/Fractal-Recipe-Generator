@@ -165,7 +165,32 @@ const App: React.FC = () => {
       try {
         const decodedData = atob(sharedRecipeData);
         const sharedRecipe: SavedRecipe = JSON.parse(decodedData);
-        setRecipeResult({ ...sharedRecipe, source: sharedRecipe.source ?? 'local' });
+        // Sanitize imageUrl before passing to RecipeResult
+        const sanitizeImageUrl = (url: string) => {
+          try {
+            // Must match Trusted host or JPEG/PNG data URI
+            // isTrustedImageUrl here is imported from RecipeResult or duplicated here
+            const trustedHosts = ['storage.googleapis.com'];
+            if (!url) return '';
+            if (url.startsWith('data:image/')) {
+              const allowedTypes = ['data:image/png', 'data:image/jpeg'];
+              return allowedTypes.some(type => url.startsWith(type)) ? url : '';
+            }
+            try {
+              const parsed = new URL(url);
+              if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+                  trustedHosts.includes(parsed.hostname)) {
+                return url;
+              }
+            } catch {
+              // Invalid URL
+            }
+            return '';
+          } catch {
+            return '';
+          }
+        };
+        setRecipeResult({ ...sharedRecipe, imageUrl: sanitizeImageUrl(sharedRecipe.imageUrl), source: sharedRecipe.source ?? 'local' });
         // Clean the URL to avoid re-showing on refresh
         globalThis.history?.replaceState({}, '', globalThis.location?.pathname ?? '/');
       } catch (e) {

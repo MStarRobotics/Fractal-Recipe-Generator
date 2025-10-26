@@ -41,14 +41,27 @@ const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob =
 };
 
 const TRUSTED_IMAGE_HOSTS = [
-  'https://storage.googleapis.com/',
-  // Add more trusted host prefixes here as needed
+  'storage.googleapis.com',
+  // Add more trusted hostnames here as needed
 ];
 
 function isTrustedImageUrl(url: string): boolean {
   if (!url) return false;
-  if (url.startsWith('data:image/')) return true;
-  return TRUSTED_IMAGE_HOSTS.some(prefix => url.startsWith(prefix));
+  // Only accept JPG/PNG base64 images; no SVG and GIF
+  if (url.startsWith('data:image/')) {
+    const allowedTypes = ['data:image/png', 'data:image/jpeg'];
+    return allowedTypes.some(type => url.startsWith(type));
+  }
+  try {
+    const parsed = new URL(url);
+    if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+        TRUSTED_IMAGE_HOSTS.includes(parsed.hostname)) {
+      return true;
+    }
+  } catch (e) {
+    // Invalid URL
+  }
+  return false;
 }
 
 const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }) => {
