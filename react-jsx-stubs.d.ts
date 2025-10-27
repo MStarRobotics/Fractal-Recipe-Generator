@@ -8,19 +8,22 @@ declare namespace JSX {
   }
 
   interface IntrinsicElements {
-    [elemName: string]: any;
+    [elemName: string]: unknown;
   }
 
-  interface Element {}
+  // Ensure JSX.Element is compatible with React.ReactElement so Root.render accepts it
+  interface Element extends React.ReactElement<unknown, unknown> {
+    // Additional properties can be added here if needed
+  }
   interface ElementClass {
     render?: unknown;
   }
   interface ElementChildrenAttribute {
-    children: unknown;
+    children: React.ReactNode;
   }
 }
 
 declare module 'react/jsx-runtime' {
-  const jsxRuntime: any;
+  const jsxRuntime: unknown;
   export = jsxRuntime;
 }

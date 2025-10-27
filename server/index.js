@@ -8,6 +8,7 @@ import { verifyMessage } from 'viem';
 import argon2 from 'argon2';
 import { z } from 'zod';
 import admin from 'firebase-admin';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -39,42 +40,19 @@ const corsOptions = {
   credentials: true,
 };
 
+app.set('trust proxy', 1);
 app.use(cors(corsOptions));
-app.use(helmet({
-  contentSecurityPolicy: false, // CSP requires tailoring for Vite dev and API-only server; disable by default
-  crossOriginEmbedderPolicy: false,
-}));
+app.use(helmet());
 app.disable('x-powered-by');
 app.use(express.json({ limit: '50kb' }));
 
-// Simple in-memory rate limiter per IP + path
-const rateBuckets = new Map();
-function rateLimit(options) {
-  const { windowMs = 60_000, limit = 60, keyGenerator } = options ?? {};
-  return (req, res, next) => {
-    try {
-      const keyBase = keyGenerator ? keyGenerator(req) : `${req.ip}:${req.path}`;
-      const now = Date.now();
-      const bucket = rateBuckets.get(keyBase) ?? { count: 0, reset: now + windowMs };
-      if (now > bucket.reset) {
-        bucket.count = 0;
-        bucket.reset = now + windowMs;
-      }
-      bucket.count += 1;
-      rateBuckets.set(keyBase, bucket);
-      res.setHeader('X-RateLimit-Limit', String(limit));
-      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, limit - bucket.count)));
-      res.setHeader('X-RateLimit-Reset', String(bucket.reset));
-      if (bucket.count > limit) {
-        res.status(429).json({ error: 'Too many requests. Please try again later.' });
-        return;
-      }
-      next();
-    } catch (e) {
-      next();
-    }
-  };
-}
+const createRateLimiter = (config) =>
+  rateLimit({
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' },
+    ...config,
+  });
 
 const pendingNonces = new Map();
 const walletDirectory = new Map();
@@ -89,7 +67,7 @@ try {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const privateKey = rawPrivateKey ? rawPrivateKey.replace(/\\n/g, '\n') : undefined;
+  const privateKey = rawPrivateKey ? rawPrivateKey.replaceAll('\\n', '\n') : undefined;
 
   if (projectId && clientEmail && privateKey) {
     if (!admin.apps.length) {
@@ -144,7 +122,7 @@ const otpResetSchema = z.object({
 });
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
-const normalizePhone = (phone) => phone.replace(/\D/g, '');
+const normalizePhone = (phone) => phone.replaceAll(/\D/g, '');
 
 const normalizeAddress = (address) => {
   if (typeof address !== 'string' || !address.startsWith('0x')) {
@@ -228,8 +206,8 @@ const verifyGoogleAccessToken = async (accessToken) => {
 };
 
 const authenticateRequest = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const authHeader = req.headers?.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Authorization token missing' });
     return;
   }
@@ -261,7 +239,7 @@ const authenticateRequest = (req, res, next) => {
   }
 };
 
-app.post('/auth/register/email', rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
+app.post('/auth/register/email', createRateLimiter({ windowMs: 60_000, limit: 20 }), async (req, res) => {
   if (!ensureCredentialStoreAvailable(res)) {
     return;
   }
@@ -319,7 +297,7 @@ app.post('/auth/register/email', rateLimit({ windowMs: 60_000, limit: 20 }), asy
   }
 });
 
-app.post('/auth/login/email', rateLimit({ windowMs: 60_000, limit: 30 }), async (req, res) => {
+app.post('/auth/login/email', createRateLimiter({ windowMs: 60_000, limit: 30 }), async (req, res) => {
   if (!ensureCredentialStoreAvailable(res)) {
     return;
   }
@@ -373,7 +351,7 @@ app.post('/auth/login/email', rateLimit({ windowMs: 60_000, limit: 30 }), async 
   }
 });
 
-app.post('/auth/password/request-otp', rateLimit({ windowMs: 60_000, limit: 5 }), async (req, res) => {
+app.post('/auth/password/request-otp', createRateLimiter({ windowMs: 60_000, limit: 5 }), async (req, res) => {
   if (!ensureCredentialStoreAvailable(res)) {
     return;
   }
@@ -432,7 +410,7 @@ app.post('/auth/password/request-otp', rateLimit({ windowMs: 60_000, limit: 5 })
   }
 });
 
-app.post('/auth/password/reset', rateLimit({ windowMs: 60_000, limit: 5 }), async (req, res) => {
+app.post('/auth/password/reset', createRateLimiter({ windowMs: 60_000, limit: 5 }), async (req, res) => {
   if (!ensureCredentialStoreAvailable(res)) {
     return;
   }
@@ -524,7 +502,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-app.post('/auth/nonce', rateLimit({ windowMs: 60_000, limit: 30 }), (req, res) => {
+app.post('/auth/nonce', createRateLimiter({ windowMs: 60_000, limit: 30 }), (req, res) => {
   try {
     const { address } = req.body ?? {};
     if (!address) {
@@ -539,7 +517,7 @@ app.post('/auth/nonce', rateLimit({ windowMs: 60_000, limit: 30 }), (req, res) =
   }
 });
 
-app.post('/auth/verify', rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
+app.post('/auth/verify', createRateLimiter({ windowMs: 60_000, limit: 20 }), async (req, res) => {
   try {
     const { address, signature } = req.body ?? {};
     if (!address || !signature) {
@@ -593,7 +571,7 @@ app.post('/auth/verify', rateLimit({ windowMs: 60_000, limit: 20 }), async (req,
   }
 });
 
-app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 20 }), async (req, res) => {
+app.post('/auth/link', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 20 }), async (req, res) => {
   try {
     const { googleId, email, displayName, googleAccessToken } = req.body ?? {};
 
@@ -625,7 +603,10 @@ app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit:
     const resolvedDisplayName = verifiedProfile?.name ?? displayName ?? null;
 
     let userRecord = userDirectory.get(resolvedGoogleId);
-    if (!userRecord) {
+    if (userRecord) {
+      userRecord.email = userRecord.email ?? resolvedEmail;
+      userRecord.displayName = userRecord.displayName ?? resolvedDisplayName;
+    } else {
       userRecord = {
         googleId: resolvedGoogleId,
         wallets: new Set(),
@@ -635,9 +616,6 @@ app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit:
         lastLinkedAt: null,
       };
       userDirectory.set(resolvedGoogleId, userRecord);
-    } else {
-      userRecord.email = userRecord.email ?? resolvedEmail;
-      userRecord.displayName = userRecord.displayName ?? resolvedDisplayName;
     }
 
     userRecord.wallets.add(normalizedAddress);
@@ -674,7 +652,7 @@ app.post('/auth/link', authenticateRequest, rateLimit({ windowMs: 60_000, limit:
   }
 });
 
-app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, limit: 60 }), (req, res) => {
+app.get('/auth/profile', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 60 }), (req, res) => {
   try {
     const normalizedAddress = normalizeAddress(req.auth.address);
     const walletRecord = buildWalletRecord(normalizedAddress);
@@ -697,7 +675,11 @@ app.get('/auth/profile', authenticateRequest, rateLimit({ windowMs: 60_000, limi
 });
 
 app.post('/auth/logout', authenticateRequest, (req, res) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers?.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Authorization token missing' });
+    return;
+  }
   const token = authHeader.slice('Bearer '.length);
   activeTokens.delete(token);
   res.json({ success: true });

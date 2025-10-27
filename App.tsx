@@ -16,7 +16,7 @@ import { revokeGoogleIdentityToken, signInWithGoogleIdentity } from './services/
 
 const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed' | 'Neutral' | 'Unknown' => {
   // Clean text of characters that are common across many scripts
-  const cleanedText = text.replace(/[0-9\s,.'-]/g, '');
+  const cleanedText = text.replaceAll(/[0-9\s,.'-]/g, '');
   if (!cleanedText.trim()) return 'Neutral'; // Contains only neutral characters
 
   const hasLatin = /[a-zA-Z\u00C0-\u017F]/.test(cleanedText); // Latin + Latin-1 Supplement
@@ -139,22 +139,23 @@ const App: React.FC = () => {
       lastLinkedGoogleIdentifierRef.current = providerId;
 
       try {
-        const linkPayload = firebaseProfile
-          ? {
-              googleId: firebaseProfile.uid,
-              email: firebaseProfile.email ?? undefined,
-              displayName: firebaseProfile.displayName ?? undefined,
-              provider: 'firebase' as const,
-            }
-          : identity
-          ? {
-              googleId: identity.googleId,
-              email: identity.email ?? undefined,
-              displayName: identity.displayName ?? undefined,
-              googleAccessToken: identity.accessToken,
-              provider: 'google-identity' as const,
-            }
-          : null;
+        let linkPayload: { googleId: string; email?: string; displayName?: string; googleAccessToken?: string; provider: 'firebase' | 'google-identity' } | null = null;
+        if (firebaseProfile) {
+          linkPayload = {
+            googleId: firebaseProfile.uid,
+            email: firebaseProfile.email ?? undefined,
+            displayName: firebaseProfile.displayName ?? undefined,
+            provider: 'firebase',
+          };
+        } else if (identity) {
+          linkPayload = {
+            googleId: identity.googleId,
+            email: identity.email ?? undefined,
+            displayName: identity.displayName ?? undefined,
+            googleAccessToken: identity.accessToken,
+            provider: 'google-identity',
+          };
+        }
 
         if (!linkPayload) {
           setGoogleAuthStatus('GOOGLE SIGN-IN REQUIRED');
@@ -309,7 +310,9 @@ const App: React.FC = () => {
   const ensureWalletConnection = React.useCallback(async (): Promise<Address> => {
     if (walletAddress) {
       if (isLifetimeMember === null) {
-        refreshMembershipStatus(walletAddress).catch(() => undefined);
+        refreshMembershipStatus(walletAddress).catch((error: unknown) => {
+          console.warn('Failed to refresh membership status:', String(error));
+        });
       }
       return walletAddress;
     }
@@ -344,7 +347,7 @@ const App: React.FC = () => {
     const handleEthereumInitialized = () => detectProviderAvailability();
     globalWindow.addEventListener('focus', handleFocus);
     globalWindow.addEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
-    const timer = globalThis.setTimeout(() => detectProviderAvailability(), 1500);
+  const timer = globalThis.setTimeout(() => detectProviderAvailability(), 1500);
 
     return () => {
       globalWindow.removeEventListener('focus', handleFocus);
@@ -402,22 +405,33 @@ const App: React.FC = () => {
     }
 
     if (!authToken) {
-      handleSignInWithMetamask(walletAddress).catch(() => undefined);
+      handleSignInWithMetamask(walletAddress).catch((error: unknown) => {
+        console.warn('Failed to sign in with MetaMask:', String(error));
+      });
     }
   }, [walletAddress, authToken, handleSignInWithMetamask, clearAuthState]);
 
   React.useEffect(() => {
     try {
-      const storedRecipes = JSON.parse(localStorage.getItem('fractalRecipes') || '[]');
-      const normalizedRecipes: SavedRecipe[] = Array.isArray(storedRecipes)
-        ? storedRecipes.map((entry: SavedRecipe) => ({
-            ...entry,
-            source: entry.source ?? 'local',
-          }))
+      const storedRaw = JSON.parse(localStorage.getItem('fractalRecipes') || '[]') as unknown;
+      const normalizedRecipes: SavedRecipe[] = Array.isArray(storedRaw)
+        ? (storedRaw as unknown[]).map((entry: unknown) => {
+            const typedEntry = entry as Partial<SavedRecipe>;
+            return {
+              recipe: typedEntry.recipe || { dishName: '', description: '', timeNeeded: '', estimatedCost: '', difficulty: '', servings: '', ingredients: [], instructions: [] },
+              imageUrl: typedEntry.imageUrl || '',
+              source: typedEntry.source ?? 'local',
+              metadataUri: typedEntry.metadataUri,
+              txHash: typedEntry.txHash,
+              creator: typedEntry.creator,
+              createdAt: typedEntry.createdAt,
+            };
+          })
         : [];
       setSavedRecipes(normalizedRecipes);
-    } catch (e) {
-      console.error("Failed to load recipes from storage", e);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("Failed to load recipes from storage", message);
       setSavedRecipes([]);
     }
 
@@ -430,14 +444,23 @@ const App: React.FC = () => {
     const urlParams = new URLSearchParams(globalThis.location?.search ?? '');
     const sharedRecipeData = urlParams.get('recipe');
     if (sharedRecipeData) {
+      const isSavedRecipeLike = (val: unknown): val is SavedRecipe => {
+        if (!val || typeof val !== 'object') return false;
+        const obj = val as Record<string, unknown>;
+        return 'recipe' in obj && 'imageUrl' in obj && typeof (obj as { recipe?: unknown }).recipe === 'object' && typeof obj.imageUrl === 'string';
+      };
       try {
         const decodedData = atob(sharedRecipeData);
-        const sharedRecipe: SavedRecipe = JSON.parse(decodedData);
-        setRecipeResult({ ...sharedRecipe, source: sharedRecipe.source ?? 'local' });
+        const parsed = JSON.parse(decodedData) as unknown;
+        if (isSavedRecipeLike(parsed)) {
+          const sharedRecipe = parsed;
+          setRecipeResult({ ...sharedRecipe, source: sharedRecipe.source ?? 'local' });
+        }
         // Clean the URL to avoid re-showing on refresh
         globalThis.history?.replaceState({}, '', globalThis.location?.pathname ?? '/');
-      } catch (e) {
-        console.error("Failed to parse shared recipe data:", e);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("Failed to parse shared recipe data:", message);
         setError("COULD NOT LOAD SHARED RECIPE. DATA IS CORRUPT.");
         setTimeout(() => setError(null), 4000);
       }
@@ -476,7 +499,7 @@ const App: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    loadOnchainCookbook();
+    void loadOnchainCookbook();
   }, [loadOnchainCookbook]);
 
   React.useEffect(() => {
@@ -484,7 +507,7 @@ const App: React.FC = () => {
       return;
     }
     localStorage.setItem('fractalLastTx', lastTxHash);
-    loadOnchainCookbook();
+    void loadOnchainCookbook();
   }, [lastTxHash, loadOnchainCookbook]);
 
   React.useEffect(() => {
@@ -520,25 +543,34 @@ const App: React.FC = () => {
       return;
     }
 
-    refreshMembershipStatus(walletAddress).catch(() => undefined);
+    refreshMembershipStatus(walletAddress).catch((error: unknown) => {
+      console.warn('Failed to refresh membership status:', String(error));
+    });
   }, [walletAddress, refreshMembershipStatus]);
 
   React.useEffect(() => {
-    const globalWindow =
-      typeof globalThis === 'object' &&
-      'window' in globalThis &&
-      globalThis.window
-        ? (globalThis.window as Window & {
-            ethereum?: { on?: (...args: unknown[]) => void; removeListener?: (...args: unknown[]) => void };
-          })
-        : undefined;
-
-    const provider = globalWindow?.ethereum;
+    // Type guard for Ethereum provider
+    interface EthereumProvider {
+      on: (event: string, handler: (...args: unknown[]) => void) => void;
+      removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+    }
+    
+    const getEthereumProvider = (): EthereumProvider | undefined => {
+      const win = typeof globalThis === 'object' && 'window' in globalThis ? (globalThis.window as Window & { ethereum?: EthereumProvider }) : undefined;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const eth: EthereumProvider | undefined = win?.ethereum;
+      if (eth && typeof eth === 'object' && 'on' in eth && 'removeListener' in eth) {
+        return eth;
+      }
+      return undefined;
+    };
+    const provider = getEthereumProvider();
     if (!provider?.on) {
       return undefined;
     }
 
-    const handleAccountsChanged = (accounts: string[]) => {
+    const handleAccountsChanged = (...args: unknown[]) => {
+      const accounts = args[0] as string[];
       detectProviderAvailability();
       if (authToken) {
         void logoutSession(authToken);
@@ -559,10 +591,12 @@ const App: React.FC = () => {
       setWalletAddress(nextAddress);
       setOnchainStatus(`CONNECTED: ${shortenAddress(nextAddress)}`);
       setMembershipStatus('CHECKING MEMBERSHIP...');
-      handleSignInWithMetamask(nextAddress).catch(() => undefined);
+      handleSignInWithMetamask(nextAddress).catch((error: unknown) => {
+        console.warn('Failed to sign in with MetaMask:', String(error));
+      });
     };
 
-    provider.on('accountsChanged', handleAccountsChanged);
+    provider.on?.('accountsChanged', handleAccountsChanged);
     return () => {
       provider.removeListener?.('accountsChanged', handleAccountsChanged);
     };
@@ -585,9 +619,10 @@ const App: React.FC = () => {
     
     // By setting currentTime to 0, we can replay the sound even if it's already playing.
     audio.currentTime = 0;
-    audio.play().catch(err => {
+    audio.play().catch((err: unknown) => {
       // The error might still happen in some edge cases, but this approach is generally more stable for rapid UI sounds.
-      console.error(`Error playing sound (${soundId}): ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Error playing sound (${soundId}): ${message}`);
     });
   }, []);
 
@@ -1106,8 +1141,8 @@ const App: React.FC = () => {
         
         <footer className="text-center mt-8 relative z-20">
        <div className={`transition-opacity duration-300 ${isGenerating ? 'opacity-50' : 'opacity-100'} ${error ? 'has-error' : ''}`}>
-             <button
-                onClick={() => { playSound('generate-sound'); handleGenerateRecipe(); }}
+         <button
+           onClick={() => { playSound('generate-sound'); void handleGenerateRecipe(); }}
            disabled={isGenerating}
            className={`arcade-button ${isGenerating ? 'loading' : ''}`}
              >

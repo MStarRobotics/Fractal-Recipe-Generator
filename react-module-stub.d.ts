@@ -6,14 +6,14 @@ declare module 'react' {
   export type ReactText = string | number;
   export type ReactNode = ReactElement | ReactText | boolean | null | undefined | Iterable<ReactNode>;
 
-  export interface ReactElement<P = any, T = any> {
+  export interface ReactElement<P = unknown, T = unknown> {
     type: T;
     props: P;
     key: Key | null;
   }
 
-  export type FC<P = {}> = (props: P & { children?: ReactNode }) => JSX.Element | null;
-  export type PropsWithChildren<P = {}> = P & { children?: ReactNode };
+  export type FC<P = Record<string, unknown>> = (props: P & { children?: ReactNode }) => JSX.Element | null;
+  export type PropsWithChildren<P = Record<string, unknown>> = P & { children?: ReactNode };
 
   export type Dispatch<A> = (value: A) => void;
   export type SetStateAction<S> = S | ((prevState: S) => S);
@@ -57,12 +57,12 @@ declare module 'react' {
     [key: string]: string | number | undefined;
   }
 
-  export type HTMLAttributes<T> = Record<string, unknown>;
-  export type ButtonHTMLAttributes<T> = HTMLAttributes<T>;
-  export type InputHTMLAttributes<T> = HTMLAttributes<T> & { value?: string | number; onChange?: (event: ChangeEvent<T>) => void };
+  export type HTMLAttributes = Record<string, unknown>;
+  export type ButtonHTMLAttributes = HTMLAttributes;
+  export type InputHTMLAttributes = HTMLAttributes & { value?: string | number; onChange?: (event: ChangeEvent<unknown>) => void };
   export type DetailedHTMLProps<E, T> = E & T;
 
-  export function createElement(type: any, props?: any, ...children: ReactNode[]): ReactElement;
+  export function createElement(type: unknown, props?: unknown, ...children: ReactNode[]): ReactElement;
   export const Fragment: FC<{ children?: ReactNode }>;
   export const StrictMode: FC<{ children?: ReactNode }>;
 
@@ -90,7 +90,7 @@ declare module 'react' {
     createElement: typeof createElement;
     Fragment: typeof Fragment;
     StrictMode: typeof StrictMode;
-  } & Record<string, any>;
+  } & Record<string, unknown>;
 
   export default React;
 }

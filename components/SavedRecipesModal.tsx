@@ -68,32 +68,44 @@ const SavedRecipesModal: React.FC<SavedRecipesModalProps> = ({ recipes, onClose,
           {analysisResult ? 'AI ANALYSIS' : 'COOKBOOK'}
         </h2>
 
-        {isLoadingAnalysis ? (
-          <div className="text-center py-8">
-            <div className="analysis-loader"></div>
-            <p className="pixel-font-small mt-4 text-yellow-400 flex items-end justify-center">
-                <span>{analysisLoadingMessage}</span>
-                <span className="loading-ellipsis ml-1">
-                    <span>.</span>
-                    <span>.</span>
-                    <span>.</span>
-                </span>
-            </p>
-          </div>
-        ) : analysisResult ? (
-          <div className="animate-fade-in">
-            <div className="retro-terminal max-h-[50vh] overflow-y-auto mt-0">
-              <h4>SYSTEM ANALYSIS OF COOKBOOK_V2.0:</h4>
-              <p>{analysisResult.split('\n').map((line, i) => <React.Fragment key={i}>{line}<br/></React.Fragment>)}</p>
-            </div>
-            <div className="text-center mt-4">
-              <button onClick={() => { playSound(); setAnalysisResult(null); }} className="arcade-button-small">
-                BACK TO RECIPES
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
+        {(() => {
+          if (isLoadingAnalysis) {
+            return (
+              <div className="text-center py-8">
+                <div className="analysis-loader"></div>
+                <p className="pixel-font-small mt-4 text-yellow-400 flex items-end justify-center">
+                    <span>{analysisLoadingMessage}</span>
+                    <span className="loading-ellipsis ml-1">
+                        <span>.</span>
+                        <span>.</span>
+                        <span>.</span>
+                    </span>
+                </p>
+              </div>
+            );
+          }
+          if (analysisResult) {
+            return (
+              <div className="animate-fade-in">
+                <div className="retro-terminal max-h-[50vh] overflow-y-auto mt-0">
+                  <h4>SYSTEM ANALYSIS OF COOKBOOK_V2.0:</h4>
+                  <p>{analysisResult.split('\n').map((line, i, arr) => (
+                      <span key={`${line}-${i}`}>
+                      {line}
+                      {i < arr.length - 1 && <br/>}
+                    </span>
+                  ))}</p>
+                </div>
+                <div className="text-center mt-4">
+                  <button onClick={() => { playSound(); setAnalysisResult(null); }} className="arcade-button-small">
+                    BACK TO RECIPES
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <>
             <div className="text-center mb-4">
               <button 
                 onClick={handleAnalyzeCookbook}
@@ -105,13 +117,37 @@ const SavedRecipesModal: React.FC<SavedRecipesModalProps> = ({ recipes, onClose,
               </button>
             </div>
             {recipes.length > 0 ? (
-              <ul className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+              <div role="list" className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
                 {recipes.map((savedItem) => {
                   const isOnchain = savedItem.source === 'onchain';
                   const txUrl = savedItem.txHash ? `https://sepolia.basescan.org/tx/${savedItem.txHash}` : null;
 
+                  let controls: React.ReactNode;
+                  if (isOnchain) {
+                    controls = (
+                      <div className="flex gap-2">
+                        <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
+                      </div>
+                    );
+                  } else if (confirmDelete === savedItem.recipe.dishName) {
+                    controls = (
+                      <div className="flex gap-2 items-center animate-shake">
+                        <span className="pixel-font-small text-yellow-400">ARE YOU SURE?</span>
+                        <button onClick={() => handleDeleteClick(savedItem.recipe.dishName)} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">YES</button>
+                        <button onClick={() => { playSound(); setConfirmDelete(null); }} className="arcade-button-small">NO</button>
+                      </div>
+                    );
+                  } else {
+                    controls = (
+                      <div className="flex gap-2">
+                        <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
+                        <button onClick={() => { playSound(); setConfirmDelete(savedItem.recipe.dishName); }} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">DEL</button>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <li key={`${savedItem.recipe.dishName}-${savedItem.txHash ?? savedItem.creator ?? 'local'}`} className="flex justify-between items-center p-2 bg-black/30 border border-green-700">
+                    <div role="listitem" key={`${savedItem.recipe.dishName}-${savedItem.txHash ?? savedItem.creator ?? 'local'}`} className="flex justify-between items-center p-2 bg-black/30 border border-green-700">
                       <div className="flex flex-col items-start">
                         <span className="pixel-font-small truncate pr-2 max-w-[220px]">{savedItem.recipe.dishName}</span>
                         {isOnchain && (
@@ -123,31 +159,17 @@ const SavedRecipesModal: React.FC<SavedRecipesModalProps> = ({ recipes, onClose,
                           </div>
                         )}
                       </div>
-                      {isOnchain ? (
-                        <div className="flex gap-2">
-                          <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
-                        </div>
-                      ) : confirmDelete === savedItem.recipe.dishName ? (
-                        <div className="flex gap-2 items-center animate-shake">
-                          <span className="pixel-font-small text-yellow-400">ARE YOU SURE?</span>
-                          <button onClick={() => handleDeleteClick(savedItem.recipe.dishName)} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">YES</button>
-                          <button onClick={() => { playSound(); setConfirmDelete(null); }} className="arcade-button-small">NO</button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
-                          <button onClick={() => { playSound(); setConfirmDelete(savedItem.recipe.dishName); }} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">DEL</button>
-                        </div>
-                      )}
-                    </li>
+                      {controls}
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             ) : (
               <p className="pixel-font-small text-center py-8">NO RECIPES SAVED YET.</p>
             )}
           </>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

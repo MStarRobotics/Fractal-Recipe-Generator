@@ -7,7 +7,7 @@ import { createPublicClient, http } from 'viem';
 
 const DEFAULT_BASE_RPC = 'https://sepolia.base.org';
 
-export function AppProviders({ children }: { children: ReactNode }) {
+export function AppProviders({ children }: Readonly<{ children: ReactNode }>) {
   const rpcUrl = import.meta.env.VITE_BASE_RPC_URL || DEFAULT_BASE_RPC;
   const apiKey = import.meta.env.VITE_PUBLIC_ONCHAINKIT_API_KEY;
   // Create a public client for OnchainKit (used internally via rpcUrl prop)

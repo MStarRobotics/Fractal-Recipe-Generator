@@ -22,6 +22,16 @@ declare global {
   interface ImportMeta {
     readonly env: ImportMetaEnv;
   }
+
+  // Minimal Ethereum provider typing for MetaMask events we use
+  interface EthereumProvider {
+    on?: (event: 'accountsChanged', handler: (accounts: string[]) => void) => void;
+    removeListener?: (event: 'accountsChanged', handler: (accounts: string[]) => void) => void;
+  }
+
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
 }
 
 export {};

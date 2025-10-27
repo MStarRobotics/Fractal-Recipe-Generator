@@ -19,6 +19,18 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Create env file for CI
+        run: |
+          cat <<'EOF' > .env
+          PORT=4000
+          JWT_SECRET=ci-secret
+          JWT_TTL_SECONDS=3600
+          CORS_ORIGIN=http://localhost:5173
+          PASSWORD_MIN_LENGTH=10
+          PWD_RESET_OTP_TTL_MS=600000
+          PWD_RESET_MAX_ATTEMPTS=5
+          EOF
+
       - name: Install dependencies
         run: npm install
 

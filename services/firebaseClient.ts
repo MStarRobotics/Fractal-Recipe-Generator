@@ -139,7 +139,6 @@ export const ensurePhoneRecaptcha = (containerId: string): RecaptchaVerifier => 
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
   }
-  const siteKey = import.meta.env.VITE_FIREBASE_RECAPTCHA_SITE_KEY as string | undefined;
   // Firebase v9 uses RecaptchaVerifier without manually passing site key; key must be configured in Console.
   // If you use enterprise or need explicit key, you can set grecaptcha params here.
   // We initialize an invisible verifier by default.

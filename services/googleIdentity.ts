@@ -78,6 +78,22 @@ const isErrorResponse = (response: TokenResponse | TokenErrorResponse): response
   return 'error' in response;
 };
 
+type OpenIdUserInfo = {
+  sub: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+};
+
+const isOpenIdUserInfo = (value: unknown): value is OpenIdUserInfo => {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.sub === 'string' &&
+    (v.email === undefined || typeof v.email === 'string') &&
+    (v.name === undefined || typeof v.name === 'string') &&
+    (v.picture === undefined || typeof v.picture === 'string');
+};
+
 export const signInWithGoogleIdentity = async (): Promise<GoogleIdentityProfile> => {
   const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
   if (!clientId) {
@@ -113,12 +129,16 @@ export const signInWithGoogleIdentity = async (): Promise<GoogleIdentityProfile>
             throw new Error('Failed to fetch Google profile.');
           }
 
-          const profile = await userInfoResponse.json();
+          const profileJson: unknown = await userInfoResponse.json();
+          if (!isOpenIdUserInfo(profileJson)) {
+            reject(new Error('Received unexpected profile shape from Google.'));
+            return;
+          }
           resolve({
-            googleId: profile.sub,
-            email: profile.email,
-            displayName: profile.name,
-            picture: profile.picture,
+            googleId: profileJson.sub,
+            email: profileJson.email,
+            displayName: profileJson.name,
+            picture: profileJson.picture,
             accessToken: tokenResponse.access_token,
           });
         } catch (error) {

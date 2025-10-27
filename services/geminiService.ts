@@ -3,11 +3,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { RecipeFormData, SavedRecipe, Recipe } from '../types';
 import { THEME_PROMPTS } from '../constants';
 
-const viteGeminiKey = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_GEMINI_API_KEY : undefined;
-const nodeGeminiKey =
-  typeof process !== 'undefined'
-    ? process.env.VITE_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY
-    : undefined;
+// Try Vite-style env first; falls back to Node env if available
+const viteGeminiKey: string | undefined = import.meta.env?.VITE_GEMINI_API_KEY;
+type NodeEnv = { VITE_GEMINI_API_KEY?: string; GEMINI_API_KEY?: string };
+const nodeEnv: NodeEnv | undefined = (globalThis as unknown as { process?: { env?: NodeEnv } })?.process?.env;
+const nodeGeminiKey: string | undefined = nodeEnv?.VITE_GEMINI_API_KEY ?? nodeEnv?.GEMINI_API_KEY;
 
 const GEMINI_API_KEY = viteGeminiKey ?? nodeGeminiKey;
 
@@ -99,8 +99,8 @@ export const generateRecipe = async (formData: RecipeFormData): Promise<Recipe> 
 
   let recipe: Recipe;
   try {
-    recipe = JSON.parse(recipeJsonText);
-  } catch (e) {
+    recipe = JSON.parse(recipeJsonText) as Recipe;
+  } catch {
     console.error("Failed to parse recipe JSON:", recipeJsonText);
     throw new Error('Failed to parse the recipe from the model. The format was invalid.');
   }
@@ -148,14 +148,16 @@ export const generateRecipeVideo = async (
 ): Promise<string> => {
   const ai = getAi();
   try {
-    const imagePart = imageBase64 ? {
-      imageBytes: imageBase64,
-      mimeType: 'image/jpeg',
-    } : undefined;
+    const imagePart = imageBase64
+      ? {
+          imageBytes: imageBase64,
+          mimeType: 'image/jpeg',
+        }
+      : undefined;
 
-    const themePrompt = THEME_PROMPTS[theme] || THEME_PROMPTS['None'];
-
-    let prompt = `
+    const buildPrompt = (): string => {
+      const themePrompt = THEME_PROMPTS[theme] || THEME_PROMPTS['None'];
+      let prompt = `
       Create a short, dynamic, and highly appetizing 10-15 second cooking video for the dish: "${recipe.dishName}".
       The video must be cinematic, professional, and visually stunning, with dynamic camera angles (including macro shots and slow-motion), fast-paced cuts, and dramatic lighting.
       
@@ -166,50 +168,62 @@ export const generateRecipeVideo = async (
 
       Overall instructions: Do not include any text, titles, or graphics in the video. The entire video should feel cohesive and high-end.
     `;
-    
-    if (narration) {
-      prompt += `\nAn audio narration will be added later. The visuals and pacing should be guided by this narration transcript: "${narration}". Ensure the visual actions correspond to the described steps.`;
-    }
-
-    // 1. Start video generation
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
-      prompt: prompt,
-      image: imagePart,
-      config: {
-        numberOfVideos: 1,
-        resolution: '720p',
-        aspectRatio: '1:1',
+      if (narration) {
+        prompt += `\nAn audio narration will be added later. The visuals and pacing should be guided by this narration transcript: "${narration}". Ensure the visual actions correspond to the described steps.`;
       }
-    });
+      return prompt;
+    };
 
-    // 2. Poll for completion
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
-      operation = await ai.operations.getVideosOperation({ operation: operation });
-    }
+    const startGeneration = async () =>
+      ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: buildPrompt(),
+        image: imagePart,
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p',
+          aspectRatio: '1:1',
+        },
+      });
 
-    // 3. Get download link
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) {
-      throw new Error("Video generation succeeded, but no download link was returned.");
-    }
+    const pollToCompletion = async (operation: Awaited<ReturnType<typeof startGeneration>>): Promise<typeof operation> => {
+      let current = operation;
+      while (!current.done) {
+        await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10s
+        current = await ai.operations.getVideosOperation({ operation: current });
+      }
+      return current;
+    };
 
-    // 4. Fetch the video file
-  assertGeminiKey();
-  const response = await fetch(`${downloadLink}&key=${GEMINI_API_KEY}`);
-    if (!response.ok) {
+    const downloadWithKey = async (uri: string): Promise<Blob> => {
+      assertGeminiKey();
+      const response = await fetch(`${uri}&key=${GEMINI_API_KEY}`);
+      if (!response.ok) {
         if (response.status === 404 || response.status === 403) {
-             throw new Error("API KEY ERROR: Your key may be invalid or missing permissions. Please select a valid key and try again.");
+          throw new Error(
+            'API KEY ERROR: Your key may be invalid or missing permissions. Please select a valid key and try again.'
+          );
         }
-      throw new Error(`Failed to download the generated video. Status: ${response.status}`);
-    }
-    const videoBlob = await response.blob();
+        throw new Error(`Failed to download the generated video. Status: ${response.status}`);
+      }
+      return response.blob();
+    };
 
-    // 5. Create a blob URL for local playback
+    // 1. Start and poll until done
+    const initialOperation = await startGeneration();
+    const completed = await pollToCompletion(initialOperation);
+
+    // 2. Extract link and download
+    const downloadLink = completed.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) {
+      throw new Error('Video generation succeeded, but no download link was returned.');
+    }
+    const videoBlob = await downloadWithKey(downloadLink);
+
+    // 3. Create a blob URL for local playback
     return URL.createObjectURL(videoBlob);
   } catch (error) {
-    console.error("Error generating video:", error);
+    console.error('Error generating video:', error);
     let message = '';
     if (error && typeof error === 'object' && 'message' in error) {
       message = String((error as Error).message);
@@ -220,9 +234,14 @@ export const generateRecipeVideo = async (
         message = String(error);
       }
     }
-    
-    if (message.includes("Requested entity was not found") || message.includes("API key not valid") || message.includes("API KEY ERROR")) {
-      throw new Error("API KEY ERROR: Your key may be invalid or missing permissions. Please select a valid key and try again.");
+    if (
+      message.includes('Requested entity was not found') ||
+      message.includes('API key not valid') ||
+      message.includes('API KEY ERROR')
+    ) {
+      throw new Error(
+        'API KEY ERROR: Your key may be invalid or missing permissions. Please select a valid key and try again.'
+      );
     }
     throw new Error(`VIDEO MATRIX ERROR: ${message}`);
   }
@@ -232,9 +251,21 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64data = reader.result?.toString().split(',')[1];
-      if (base64data) {
-        resolve(base64data);
+      const result = reader.result;
+      if (typeof result === 'string') {
+        const base64data = result.split(',')[1];
+        if (base64data) {
+          resolve(base64data);
+          return;
+        }
+      }
+      if (result instanceof ArrayBuffer) {
+        const bytes = new Uint8Array(result);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCodePoint(bytes[i]);
+        }
+        resolve(btoa(binary));
       } else {
         reject(new Error("Failed to convert blob to base64"));
       }

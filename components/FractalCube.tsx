@@ -59,8 +59,8 @@ const BranchCube: React.FC<BranchCubeProps> = ({ ingredient, index, onDelete, pl
   );
 
   React.useEffect(() => {
-    const timer = window.setTimeout(() => setIsMounted(true), 10);
-    return () => window.clearTimeout(timer);
+    const timer = globalThis.setTimeout(() => setIsMounted(true), 10);
+    return () => globalThis.clearTimeout(timer);
   }, []);
 
   const wrapperClassName = [
@@ -118,7 +118,7 @@ const BranchCube: React.FC<BranchCubeProps> = ({ ingredient, index, onDelete, pl
             </span>
             <div className="recycle-letter-cloud">
               {RECYCLE_CHARACTERS.map((char, idx) => (
-                <span key={idx} className={`pixel-font-small recycle-letter recycle-letter-${idx}`}>
+                <span key={`${char}-${idx}`} className={`pixel-font-small recycle-letter recycle-letter-${idx}`}>
                   <span className="recycle-letter-inner">{char === ' ' ? '\u00A0' : char}</span>
                 </span>
               ))}
@@ -185,12 +185,11 @@ const FractalCube: React.FC<FractalCubeProps> = ({
 
   React.useEffect(() => {
     const targetText = formData.ingredients.length > 0 ? `${formData.ingredients.length} ITEM(S)` : 'EMPTY';
-    let interval: number;
     let iteration = 0;
     const scrambleDuration = 400; // ms
     const frameRate = 40; // ms per frame
 
-    interval = window.setInterval(() => {
+  const scrambleIntervalId = globalThis.setInterval(() => {
       const scrambled = targetText
         .split("")
         .map((_char, index) => {
@@ -205,13 +204,13 @@ const FractalCube: React.FC<FractalCubeProps> = ({
       setCountText(scrambled);
       
       if (iteration >= scrambleDuration / frameRate) {
-        clearInterval(interval);
+  globalThis.clearInterval(scrambleIntervalId);
         setCountText(targetText);
       }
       iteration += 1;
     }, frameRate);
 
-    return () => clearInterval(interval);
+    return () => globalThis.clearInterval(scrambleIntervalId);
   }, [formData.ingredients.length]);
 
   React.useEffect(() => {
@@ -229,15 +228,14 @@ const FractalCube: React.FC<FractalCubeProps> = ({
     if (!cube) return;
 
     let animationFrameId: number;
-    let intervalId: number;
 
     if (isRandomRotation) {
       cube.style.animation = 'none'; // Disable CSS animation
 
-      let rotation = { x: 0, y: 0 };
-      let velocity = { x: (Math.random() - 0.5) * 0.4, y: (Math.random() - 0.5) * 0.4 };
+      const rotation = { x: 0, y: 0 };
+      const velocity = { x: (Math.random() - 0.5) * 0.4, y: (Math.random() - 0.5) * 0.4 };
 
-      intervalId = window.setInterval(() => {
+      const intervalId = globalThis.setInterval(() => {
         velocity.x = (Math.random() - 0.5) * 0.4; // Slower, more gentle changes
         velocity.y = (Math.random() - 0.5) * 0.4;
       }, 3500);
@@ -249,20 +247,22 @@ const FractalCube: React.FC<FractalCubeProps> = ({
         animationFrameId = requestAnimationFrame(animate);
       };
       animate();
-    } else {
-      // Reset to CSS-driven animation
-      cube.style.animation = '';
-      cube.style.transform = '';
-    }
 
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      clearInterval(intervalId);
-      if (cube) {
-        // Ensure styles are cleaned up when toggling off or unmounting
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        globalThis.clearInterval(intervalId);
         cube.style.animation = '';
         cube.style.transform = '';
-      }
+      };
+    }
+
+    // Not random rotation: reset to CSS-driven animation
+    cube.style.animation = '';
+    cube.style.transform = '';
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      cube.style.animation = '';
+      cube.style.transform = '';
     };
   }, [isRandomRotation]);
 
@@ -404,13 +404,15 @@ const FractalCube: React.FC<FractalCubeProps> = ({
               {showSuggestions && suggestions.length > 0 && (
                 <ul className="suggestions-list">
                   {suggestions.map((s, index) => (
-                    <li 
-                      key={s} 
-                      className={index === highlightedIndex ? 'suggestion-highlighted' : ''}
-                      onMouseDown={() => handleSelectSuggestion(index)}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                    >
-                      {s}
+                    <li key={s}>
+                      <button
+                        type="button"
+                        className={index === highlightedIndex ? 'suggestion-highlighted' : ''}
+                        onMouseDown={() => handleSelectSuggestion(index)}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                      >
+                        {s}
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -474,7 +476,7 @@ const FractalCube: React.FC<FractalCubeProps> = ({
             </span>
             <div className="recycle-letter-cloud">
               {RECYCLE_CHARACTERS.map((char, idx) => (
-                <span key={idx} className={`pixel-font-small recycle-letter recycle-letter-${idx}`}>
+                <span key={`${char}-${idx}`} className={`pixel-font-small recycle-letter recycle-letter-${idx}`}>
                   <span className="recycle-letter-inner">{char === ' ' ? '\u00A0' : char}</span>
                 </span>
               ))}
@@ -483,7 +485,7 @@ const FractalCube: React.FC<FractalCubeProps> = ({
         </div>
       </div>
       {formData.ingredients.map((ing, i) => (
-        <BranchCube key={`${ing}-${i}`} ingredient={ing} index={i} onDelete={onDeleteIngredient} playSound={playSound} isDuplicate={duplicateIndex === i} />
+        <BranchCube key={`${ing}-${i}-${formData.ingredients.length}`} ingredient={ing} index={i} onDelete={onDeleteIngredient} playSound={playSound} isDuplicate={duplicateIndex === i} />
       ))}
     </>
   );

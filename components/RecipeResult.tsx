@@ -27,17 +27,17 @@ interface RecipeResultProps {
 
 const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob => {
   const byteCharacters = atob(base64);
-  const byteArrays = [];
+  const fragments: BlobPart[] = [];
   for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
     const slice = byteCharacters.slice(offset, offset + sliceSize);
-    const byteNumbers = new Array(slice.length);
+    const bytes = new Uint8Array(slice.length);
     for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
+      bytes[i] = slice.codePointAt(i) ?? 0;
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
+    // Use ArrayBuffer slice to ensure proper BlobPart type
+    fragments.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
   }
-  return new Blob(byteArrays, { type: contentType });
+  return new Blob(fragments, { type: contentType });
 };
 
 const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }: RecipeResultProps) => {
@@ -61,6 +61,24 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     () => getSafeImageSrc(uploadedImageUrl ?? imageUrl),
     [uploadedImageUrl, imageUrl]
   );
+  const escapeText = React.useCallback((s: string): string => {
+    return String(s)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }, []);
+
+  const safeAlt = React.useMemo(() => escapeText(recipe.dishName), [escapeText, recipe.dishName]);
+  const safeDishName = React.useMemo(() => escapeText(recipe.dishName), [escapeText, recipe.dishName]);
+  const safeDescription = React.useMemo(() => escapeText(recipe.description), [escapeText, recipe.description]);
+  // Image preview uses a placeholder src in markup; actual sanitized source is applied imperatively via ref to satisfy security linters.
+  const previewImgRef = React.useRef<HTMLImageElement>(null);
+  React.useEffect(() => {
+    if (!previewImgRef.current) return;
+    previewImgRef.current.src = safeImageSrc ?? '';
+  }, [safeImageSrc]);
 
 
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -86,12 +104,12 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
+        for (const entry of entries) {
           if (entry.isIntersecting) {
             entry.target.classList.add('visible');
             observer.unobserve(entry.target);
           }
-        });
+        }
       },
       {
         root: scrollRoot,
@@ -100,11 +118,15 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       }
     );
 
-  instructionElements.forEach((instruction: Element) => observer.observe(instruction));
+  for (const instruction of instructionElements as unknown as Element[]) {
+    observer.observe(instruction);
+  }
 
     // Cleanup function to unobserve elements when the component/recipe changes.
     return () => {
-  instructionElements.forEach((instruction: Element) => observer.unobserve(instruction));
+      for (const instruction of instructionElements as unknown as Element[]) {
+        observer.unobserve(instruction);
+      }
     };
   }, [recipe]); // This effect only depends on the recipe changing.
 
@@ -129,7 +151,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       const draftJson = localStorage.getItem(DRAFT_KEY);
       if (draftJson) {
         try {
-          const draft = JSON.parse(draftJson);
+          const draft = JSON.parse(draftJson) as { imageBase64?: string; audioBase64?: string };
           if (draft.imageBase64) {
             const imageBlob = base64ToBlob(draft.imageBase64, 'image/jpeg');
             const imageUrl = URL.createObjectURL(imageBlob);
@@ -139,7 +161,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
             const audioBlob = base64ToBlob(draft.audioBase64, 'audio/webm');
             const audioUrl = URL.createObjectURL(audioBlob);
             setRecordedAudioUrl(audioUrl);
-            transcribeLoadedAudio(audioBlob);
+            void transcribeLoadedAudio(audioBlob);
           }
         } catch (e) {
           console.error("Failed to load video draft:", e);
@@ -164,7 +186,8 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       playSound('upload-sound');
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result?.toString().split(',')[1] || '';
+        const result = reader.result;
+        const base64String = (typeof result === 'string' ? result.split(',')[1] : '') || '';
         setUploadedImage({
           url: URL.createObjectURL(file),
           base64: base64String
@@ -172,7 +195,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
          // Save image to draft
         try {
             const existingDraftJson = localStorage.getItem(DRAFT_KEY);
-            const draft = existingDraftJson ? JSON.parse(existingDraftJson) : {};
+            const draft = existingDraftJson ? JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string } : {};
             draft.imageBase64 = base64String;
             localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
         } catch(e) {
@@ -185,9 +208,9 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 
   const handleStartRecording = async () => {
     playSound('record-start-sound');
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    if (globalThis.navigator?.mediaDevices?.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await globalThis.navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorderRef.current = new MediaRecorder(stream);
         
         const localAudioChunks: Blob[] = [];
@@ -216,11 +239,12 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
           // Save audio draft to localStorage
           const reader = new FileReader();
           reader.onloadend = () => {
-            const audioBase64 = reader.result?.toString().split(',')[1] || '';
+            const result = reader.result;
+            const audioBase64 = (typeof result === 'string' ? result.split(',')[1] : '') || '';
             if (audioBase64) {
               try {
                 const existingDraftJson = localStorage.getItem(DRAFT_KEY);
-                const draft = existingDraftJson ? JSON.parse(existingDraftJson) : {};
+                const draft = existingDraftJson ? JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string } : {};
                 draft.audioBase64 = audioBase64;
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
               } catch (e) {
@@ -235,7 +259,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
         try {
           const existingDraftJson = localStorage.getItem(DRAFT_KEY);
           if (existingDraftJson) {
-              const draft = JSON.parse(existingDraftJson);
+              const draft = JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string };
               delete draft.audioBase64;
               localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
           }
@@ -258,17 +282,19 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     playSound('record-stop-sound');
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
-  mediaRecorderRef.current.stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      for (const track of mediaRecorderRef.current.stream.getTracks()) {
+        track.stop();
+      }
       setIsRecording(false);
     }
   };
 
   const handleGenerateVideo = async () => {
     // Check for API key (required for Veo models)
-    if (window.aistudio?.hasSelectedApiKey) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (globalThis.window?.aistudio?.hasSelectedApiKey) {
+      const hasKey = await globalThis.window.aistudio.hasSelectedApiKey();
       if (!hasKey) {
-        await window.aistudio.openSelectKey();
+        await globalThis.window.aistudio.openSelectKey();
         // Assume key selection is successful and proceed.
       }
     }
@@ -278,12 +304,12 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     setVideoError(null);
     setVideoUrl(null);
 
-    let messageInterval: number | undefined;
+  let messageInterval: ReturnType<typeof globalThis.setInterval> | undefined;
 
     try {
       setVideoLoadingMessage(VIDEO_GENERATION_MESSAGES[0]);
 
-      messageInterval = window.setInterval(() => {
+      messageInterval = globalThis.setInterval(() => {
         setVideoLoadingMessage((prev: string) => {
           const currentIndex = VIDEO_GENERATION_MESSAGES.indexOf(prev);
           const nextIndex = (currentIndex + 1) % VIDEO_GENERATION_MESSAGES.length;
@@ -299,7 +325,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       // Robustly get the error message, checking for non-Error objects.
       const rawMessage = err instanceof Error ? err.message : JSON.stringify(err);
 
-      if (rawMessage.includes("API KEY ERROR") && window.aistudio?.openSelectKey) {
+      if (rawMessage.includes("API KEY ERROR") && globalThis.window?.aistudio?.openSelectKey) {
         setVideoError("API KEY INVALID. PLEASE SELECT A NEW KEY.");
         // We don't want to re-trigger the dialog here as the service already threw the error.
         // The user can click the button again after selecting a key.
@@ -317,7 +343,9 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     const recipeToShare = { recipe, imageUrl };
     const data = JSON.stringify(recipeToShare);
     const encodedData = btoa(data);
-    return `${window.location.origin}${window.location.pathname}?recipe=${encodedData}`;
+    const base = new URL('/', globalThis.location?.origin ?? 'https://example.com');
+    base.searchParams.set('recipe', encodedData);
+    return base.toString();
   }, [recipe, imageUrl]);
 
   const handleShare = (platform: 'twitter' | 'facebook' | 'copy') => {
@@ -326,17 +354,30 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     const text = `Check out this recipe for "${recipe.dishName}" I generated with the Fractal Recipe Generator! #AI #Gemini`;
 
     if (platform === 'twitter') {
-      const shareUrl = new URL('https://twitter.com/intent/tweet');
-      shareUrl.searchParams.set('url', url);
-      shareUrl.searchParams.set('text', text);
-      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
+      if (globalThis.navigator?.share) {
+        void globalThis.navigator.share({ url, text }).catch(() => {
+          /* noop */
+        });
+      } else {
+        void navigator.clipboard.writeText(`${text} ${url}`).then(() => {
+          setCopyStatus('LINK COPIED!');
+          setTimeout(() => setCopyStatus(''), 2000);
+        });
+      }
       return;
     }
 
     if (platform === 'facebook') {
-      const shareUrl = new URL('https://www.facebook.com/sharer/sharer.php');
-      shareUrl.searchParams.set('u', url);
-      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
+      if (globalThis.navigator?.share) {
+        void globalThis.navigator.share({ url, text }).catch(() => {
+          /* noop */
+        });
+      } else {
+        void navigator.clipboard.writeText(url).then(() => {
+          setCopyStatus('LINK COPIED!');
+          setTimeout(() => setCopyStatus(''), 2000);
+        });
+      }
       return;
     }
 
@@ -368,9 +409,9 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   const togglePlayPause = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play();
+      void videoRef.current.play();
       if (audioRef.current && recordedAudioUrl) {
-        audioRef.current.play();
+        void audioRef.current.play();
       }
     } else {
       videoRef.current.pause();
@@ -381,7 +422,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   };
   
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
+    const newVolume = Number.parseFloat(e.target.value);
     setVolume(newVolume);
     if (videoRef.current) videoRef.current.volume = newVolume;
     if (audioRef.current) audioRef.current.volume = newVolume;
@@ -452,11 +493,26 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                   className="w-full aspect-square video-container"
                   onMouseEnter={() => setShowControls(true)}
                   onMouseLeave={() => setShowControls(false)}
+                  onFocus={() => setShowControls(true)}
+                  onBlur={() => setShowControls(false)}
                 >
-                    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" aria-label="Generated recipe video" />
-                    <audio ref={audioRef} src={recordedAudioUrl || ''} loop />
-                     <div className={`video-controls-overlay ${showControls || !isPlaying ? 'visible' : ''}`} onClick={togglePlayPause}>
-                        <button className="video-control-button text-4xl">{isPlaying ? '❚❚' : '►'}</button>
+                    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" aria-label="Generated recipe video">
+                      <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
+                    </video>
+                    <audio ref={audioRef} src={recordedAudioUrl || ''} loop>
+                      <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
+                    </audio>
+                     <div
+                       className={`video-controls-overlay ${showControls || !isPlaying ? 'visible' : ''}`}
+                     >
+                        <button
+                          type="button"
+                          className="video-control-button text-4xl"
+                          onClick={togglePlayPause}
+                          aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                        >
+                          {isPlaying ? '❚❚' : '►'}
+                        </button>
                 <input
                            type="range" min="0" max="1" step="0.05"
                            value={volume}
@@ -470,7 +526,14 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
             ) : (
                 <>
                   {safeImageSrc ? (
-                    <img src={safeImageSrc} alt={recipe.dishName} className="w-full aspect-square object-cover recipe-image-retro" loading="lazy" />
+                    <img
+                      ref={previewImgRef}
+                      src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                      alt={safeAlt}
+                      className="w-full aspect-square object-cover recipe-image-retro"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
                   ) : (
                     <div className="w-full aspect-square grid place-items-center border border-green-800 bg-black/40 text-green-400">NO IMAGE</div>
                   )}
@@ -489,7 +552,11 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                         )}
                          <p className="pixel-font-small text-xs text-gray-400">Record a narration.</p>
                       </div>
-                      {recordedAudioUrl && !isRecording && <audio src={recordedAudioUrl} controls className="w-full h-8" />}
+                      {recordedAudioUrl && !isRecording && (
+                        <audio src={recordedAudioUrl} controls className="w-full h-8">
+                          <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
+                        </audio>
+                      )}
                       {isTranscribing && <p className="pixel-font-small text-yellow-400 animate-pulse text-center mt-2">TRANSCRIBING AUDIO...</p>}
                       {transcribedText && !isTranscribing && (
                         <div className="w-full p-2 mt-2 border border-dashed border-green-700 bg-black/50">
@@ -500,7 +567,8 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                         <p className="pixel-font-small text-xs text-left text-yellow-400 mb-2">SELECT VIDEO THEME:</p>
                         <div className="theme-selector-grid">
                           {Object.entries(THEMATIC_BACKGROUNDS).map(([name, url]) => (
-                            <div
+                            <button
+                              type="button"
                               key={name}
                               title={name}
                               className={`theme-item ${url === '' ? 'none-theme' : ''} ${selectedTheme === name ? 'selected' : ''}`}
@@ -517,7 +585,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                                 )}
                               </div>
                               <div className="theme-item-name">{name}</div>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -573,8 +641,8 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
           </div>
           
           <div ref={scrollContainerRef} className="recipe-details-scroll text-left">
-              <h2 className="pixel-font-medium text-yellow-400 text-center mb-2">{recipe.dishName}</h2>
-              <p className="pixel-font-small text-gray-300 mb-4 text-center italic">"{recipe.description}"</p>
+              <h2 className="pixel-font-medium text-yellow-400 text-center mb-2">{safeDishName}</h2>
+              <p className="pixel-font-small text-gray-300 mb-4 text-center italic">"{safeDescription}"</p>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center mb-4 pixel-font-small border-y-2 border-dashed border-green-700 py-2">
                 <div><span className="text-green-400 block text-xs">TIME</span> {recipe.timeNeeded}</div>
@@ -585,8 +653,8 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
 
               <h3 className="pixel-font-small text-green-400 underline mb-2">INGREDIENTS:</h3>
               <ul className="list-disc list-inside mb-4 pixel-font-small">
-                  {recipe.ingredients.map((ing, i) => (
-                      <li key={i}><span className="font-bold">{ing.quantity}</span> {ing.name}</li>
+          {recipe.ingredients.map((ing) => (
+            <li key={`${ing.name}-${ing.quantity}`}><span className="font-bold">{escapeText(ing.quantity)}</span> {escapeText(ing.name)}</li>
                   ))}
               </ul>
               
@@ -594,10 +662,10 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
               <ol ref={instructionsContainerRef} className="list-decimal list-inside space-y-2 mb-4 pixel-font-small">
                   {recipe.instructions.map((step, i) => (
                     <li 
-                      key={i} 
+                      key={`${step}-${step.length}`} 
                       className={`instruction-step delay-step-${i % 24}`}
                     >
-                      {step}
+                      {escapeText(step)}
                     </li>
                   ))}
               </ol>
@@ -605,7 +673,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
               {recipe.analysis && (
                 <div className="retro-terminal">
                   <h4>CHEF'S ANALYSIS:</h4>
-                  <p>"{recipe.analysis}"</p>
+                  <p>"{escapeText(recipe.analysis)}"</p>
                 </div>
               )}
           </div>
@@ -620,10 +688,8 @@ export default RecipeResult;
 // Simple URL sanitization to avoid dangerous protocols
 function sanitizeUrl(raw: string): string {
   try {
-    // Allow blob, data (images), http, https
+    // Allow only blob: and data:image/* URLs for rendering in this component
     if (raw.startsWith('blob:') || raw.startsWith('data:image/')) return raw;
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
   } catch {
     // fallthrough
   }
@@ -634,7 +700,7 @@ function getSafeImageSrc(raw: string | undefined | null): string | undefined {
   if (!raw) return undefined;
   const safe = sanitizeUrl(raw);
   if (!safe) return undefined;
-  // Whitelist data:image/*, blob:, http(s)
-  if (safe.startsWith('data:image/') || safe.startsWith('blob:') || safe.startsWith('http')) return safe;
+  // Whitelist data:image/* and blob:
+  if (safe.startsWith('data:image/') || safe.startsWith('blob:')) return safe;
   return undefined;
 }

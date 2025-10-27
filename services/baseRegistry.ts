@@ -1,7 +1,7 @@
 // Blockchain helpers for wallet connectivity, membership management, and cookbook syncing.
-import { createWalletClient, createPublicClient, custom, http, parseAbiItem, type Abi, type Address, type Hex } from 'viem';
+import { createWalletClient, createPublicClient, custom, http, parseAbiItem, type Address, type Hex } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
-import { FRACTAL_RECIPE_REGISTRY_ABI } from '../contracts/fractalRecipeRegistryAbi';
+import { FRACTAL_RECIPE_REGISTRY_ABI, type FractalRecipeRegistryAbi } from '../contracts/fractalRecipeRegistryAbi';
 import type { SavedRecipe } from '../types';
 import { buildFallbackRecipe, decodeRecipeMetadata, encodeRecipeMetadata } from '../utils/metadata';
 import { getName } from '@coinbase/onchainkit/identity';
@@ -22,7 +22,7 @@ const publicClient = createPublicClient({
   transport: http(rpcUrl),
 });
 
-const registryAbi = FRACTAL_RECIPE_REGISTRY_ABI as Abi;
+const registryAbi: FractalRecipeRegistryAbi = FRACTAL_RECIPE_REGISTRY_ABI;
 
 const recipeSynthesizedEvent = parseAbiItem('event RecipeSynthesized(uint256 indexed recipeId, address indexed creator, string dishName, string metadataURI, uint256 timestamp)');
 
@@ -32,12 +32,16 @@ type EIP1193Provider = {
   removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
+const isEip1193Provider = (val: unknown): val is EIP1193Provider => {
+  return !!val && typeof (val as { request?: unknown }).request === 'function';
+};
+
 const getInjectedProvider = (): EIP1193Provider => {
   const globalWindow = typeof globalThis === 'object'
-    ? (globalThis as unknown as Window & { ethereum?: EIP1193Provider })
+    ? (globalThis as unknown as Window & { ethereum?: unknown })
     : undefined;
 
-  if (!globalWindow?.ethereum) {
+  if (!isEip1193Provider(globalWindow?.ethereum)) {
     throw new Error('MetaMask not detected. Install MetaMask to continue.');
   }
   return globalWindow.ethereum;
@@ -111,7 +115,7 @@ export const recordRecipeOnchain = async (
     args: [savedRecipe.recipe.dishName, metadataUri],
     account,
     chain: baseSepolia,
-  } as any);
+  });
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -123,11 +127,11 @@ export const fetchMembershipPrice = async (): Promise<bigint> => {
   }
 
   try {
-    return (await publicClient.readContract({
+    return await publicClient.readContract({
       address: contractAddress,
       abi: registryAbi,
       functionName: 'LIFETIME_MEMBERSHIP_PRICE',
-    } as any)) as bigint;
+    });
   } catch (error) {
     console.warn('Failed to read membership price, using default.', error);
     return DEFAULT_MEMBERSHIP_PRICE_WEI;
@@ -140,12 +144,12 @@ export const checkLifetimeMembership = async (account: Address): Promise<boolean
   }
 
   try {
-    return (await publicClient.readContract({
+    return await publicClient.readContract({
       address: contractAddress,
       abi: registryAbi,
       functionName: 'isLifetimeMember',
       args: [account],
-    } as any)) as boolean;
+    });
   } catch (error) {
     console.warn('Failed to check lifetime membership', error);
     return false;
@@ -176,7 +180,7 @@ export const purchaseLifetimeMembership = async (account: Address, priceOverride
     value,
     account,
     chain: baseSepolia,
-  } as any);
+  });
 
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
@@ -187,11 +191,11 @@ export const fetchOnchainCookbook = async (limit = 12): Promise<SavedRecipe[]> =
     return [];
   }
 
-  const total = (await publicClient.readContract({
+  const total = await publicClient.readContract({
     address: contractAddress,
     abi: registryAbi,
     functionName: 'totalRecipes',
-  } as any)) as bigint;
+  });
 
   if (total === 0n) {
     return [];
@@ -200,12 +204,12 @@ export const fetchOnchainCookbook = async (limit = 12): Promise<SavedRecipe[]> =
   const clamped = Math.min(Number(total), limit);
   const startIndex = Number(total) - clamped;
 
-  const rawRecipes = (await publicClient.readContract({
+  const rawRecipes = await publicClient.readContract({
     address: contractAddress,
     abi: registryAbi,
     functionName: 'getRecipes',
     args: [BigInt(startIndex), BigInt(clamped)],
-  } as any)) as Array<{ creator: Address; dishName: string; metadataURI: string; createdAt: bigint }>;
+  });
 
   const logs = await publicClient.getLogs({
     address: contractAddress,

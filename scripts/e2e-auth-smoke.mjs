@@ -15,11 +15,11 @@ async function json(res) {
   try { return JSON.parse(text); } catch { return { raw: text, status: res.status }; }
 }
 
-async function main() {
-  console.log(`BASE_URL: ${BASE_URL}`);
-  console.log(`EMAIL: ${TEST_EMAIL}`);
-  console.log(`PHONE: ${TEST_PHONE}`);
+console.log(`BASE_URL: ${BASE_URL}`);
+console.log(`EMAIL: ${TEST_EMAIL}`);
+console.log(`PHONE: ${TEST_PHONE}`);
 
+try {
   // 1) Register
   let res = await fetch(`${BASE_URL}/auth/register/email`, {
     method: 'POST',
@@ -44,7 +44,6 @@ async function main() {
     console.error('Login failed', res.status, body);
     process.exit(1);
   }
-  const token = body.token;
   console.log('Login: OK');
 
   // 3) Request OTP
@@ -92,9 +91,7 @@ async function main() {
   console.log('Login with new password: OK');
 
   console.log('\nE2E auth smoke test: PASS');
-}
-
-main().catch((e) => {
+} catch (e) {
   console.error('E2E smoke test crashed', e);
   process.exit(1);
-});
+}

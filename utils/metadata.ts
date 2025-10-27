@@ -11,14 +11,17 @@ export interface OnchainRecipeMetadata {
 }
 
 const toBase64 = (value: string) => {
+  // Prefer Web APIs when available
   if (typeof globalThis !== 'undefined' && typeof globalThis.btoa === 'function') {
-    return globalThis.btoa(unescape(encodeURIComponent(value)));
+    const bytes = new TextEncoder().encode(value);
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCodePoint(byte), '');
+    return globalThis.btoa(binary);
   }
 
-  const maybeGlobal = typeof globalThis === 'object' ? (globalThis as Record<string, unknown>) : undefined;
-  const bufferCtor = maybeGlobal && typeof maybeGlobal.Buffer === 'function'
-    ? (maybeGlobal.Buffer as unknown as { from: (input: string, encoding: string) => { toString: (encoding: string) => string } })
-    : undefined;
+  // Node.js fallback
+  type NodeBufferCtor = { from: (input: string, encoding: 'utf8' | 'base64') => { toString: (encoding: 'base64' | 'utf8') => string } };
+  const maybeGlobal = typeof globalThis === 'object' ? (globalThis as unknown as { Buffer?: NodeBufferCtor }) : undefined;
+  const bufferCtor = maybeGlobal?.Buffer;
   if (bufferCtor) {
     return bufferCtor.from(value, 'utf8').toString('base64');
   }
@@ -27,14 +30,20 @@ const toBase64 = (value: string) => {
 };
 
 const fromBase64 = (value: string) => {
+  // Prefer Web APIs when available
   if (typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function') {
-    return decodeURIComponent(escape(globalThis.atob(value)));
+    const binary = globalThis.atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.codePointAt(i) ?? 0;
+    }
+    return new TextDecoder().decode(bytes);
   }
 
-  const maybeGlobal = typeof globalThis === 'object' ? (globalThis as Record<string, unknown>) : undefined;
-  const bufferCtor = maybeGlobal && typeof maybeGlobal.Buffer === 'function'
-    ? (maybeGlobal.Buffer as unknown as { from: (input: string, encoding: string) => { toString: (encoding: string) => string } })
-    : undefined;
+  // Node.js fallback
+  type NodeBufferCtor = { from: (input: string, encoding: 'utf8' | 'base64') => { toString: (encoding: 'base64' | 'utf8') => string } };
+  const maybeGlobal = typeof globalThis === 'object' ? (globalThis as unknown as { Buffer?: NodeBufferCtor }) : undefined;
+  const bufferCtor = maybeGlobal?.Buffer;
   if (bufferCtor) {
     return bufferCtor.from(value, 'base64').toString('utf8');
   }

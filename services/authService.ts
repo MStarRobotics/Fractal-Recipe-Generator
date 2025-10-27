@@ -29,6 +29,10 @@ type LinkRequest = {
   provider?: 'firebase' | 'google-identity';
 };
 
+const isEthereumProvider = (val: unknown): val is EthereumProvider => {
+  return !!val && typeof (val as { request?: unknown }).request === 'function';
+};
+
 const getEthereumProvider = (): EthereumProvider => {
   const globalWindow =
     typeof globalThis === 'object' &&
@@ -37,7 +41,7 @@ const getEthereumProvider = (): EthereumProvider => {
       ? (globalThis.window as Window & { ethereum?: EthereumProvider })
       : undefined;
 
-  if (!globalWindow?.ethereum) {
+  if (!isEthereumProvider(globalWindow?.ethereum)) {
     throw new Error('MetaMask extension not detected.');
   }
 
@@ -58,9 +62,12 @@ const requestJson = async <T>(path: string, options: RequestInit = {}): Promise<
   if (!response.ok) {
     let message = 'Request failed';
     try {
-      const payload = await response.json();
-      if (payload?.error) {
-        message = payload.error;
+      const payload: unknown = await response.json();
+      if (payload && typeof payload === 'object' && 'error' in payload) {
+        const errVal = (payload as { error: unknown }).error;
+        if (typeof errVal === 'string') {
+          message = errVal;
+        }
       }
     } catch (error_) {
       console.warn('Failed to parse error payload', error_);
@@ -69,7 +76,7 @@ const requestJson = async <T>(path: string, options: RequestInit = {}): Promise<
     throw new Error(message);
   }
 
-  return response.json() as Promise<T>;
+  return (await response.json()) as T;
 };
 
 export const isMetaMaskAvailable = (): boolean => {
