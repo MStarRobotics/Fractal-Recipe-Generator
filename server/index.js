@@ -674,7 +674,7 @@ app.get('/auth/profile', authenticateRequest, createRateLimiter({ windowMs: 60_0
   }
 });
 
-app.post('/auth/logout', authenticateRequest, (req, res) => {
+app.post('/auth/logout', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 30 }), (req, res) => {
   const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Authorization token missing' });

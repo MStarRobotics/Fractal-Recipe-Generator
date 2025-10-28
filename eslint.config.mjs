@@ -5,7 +5,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs']
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'scripts/**', 'server/**']
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -49,17 +49,6 @@ export default [
       '@typescript-eslint/no-unsafe-return': 'warn',
       '@typescript-eslint/no-unsafe-call': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn'
-    }
-  },
-  {
-    files: ['server/**/*.js', 'scripts/**/*.mjs'],
-    languageOptions: {
-      globals: {
-        ...globals.node
-      }
-    },
-    rules: {
-      'no-console': 'off'
     }
   }
 ];
