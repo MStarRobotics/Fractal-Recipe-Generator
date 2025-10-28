@@ -67,7 +67,7 @@ try {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const privateKey = rawPrivateKey ? rawPrivateKey.replaceAll('\\n', '\n') : undefined;
+  const privateKey = rawPrivateKey ? rawPrivateKey.replaceAll(String.raw`\n`, '\n') : undefined;
 
   if (projectId && clientEmail && privateKey) {
     if (!admin.apps.length) {
@@ -674,7 +674,7 @@ app.get('/auth/profile', authenticateRequest, createRateLimiter({ windowMs: 60_0
   }
 });
 
-app.post('/auth/logout', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 60 }), (req, res) => {
+app.post('/auth/logout', authenticateRequest, (req, res) => {
   const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Authorization token missing' });

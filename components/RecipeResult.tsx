@@ -40,6 +40,76 @@ const base64ToBlob = (base64: string, contentType = '', sliceSize = 512): Blob =
   return new Blob(fragments, { type: contentType });
 };
 
+// Sub-component for recording and voiceover controls to reduce main component complexity
+const RecordingControls: React.FC<{
+  isRecording: boolean;
+  recordedAudioUrl: string | null;
+  isTranscribing: boolean;
+  transcribedText: string | null;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+}> = ({ isRecording, recordedAudioUrl, isTranscribing, transcribedText, onStartRecording, onStopRecording }) => (
+  <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
+    <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
+    <div className="flex items-center gap-2">
+      {isRecording ? (
+        <button onClick={onStopRecording} className="arcade-button-small bg-red-600 border-red-500 w-1/2 animate-pulse">STOP</button>
+      ) : (
+        <button onClick={onStartRecording} className="arcade-button-small w-1/2">{recordedAudioUrl ? 'AUDIO OK!' : 'REC VOICEOVER'}</button>
+      )}
+      <p className="pixel-font-small text-xs text-gray-400">Record a narration.</p>
+    </div>
+    {recordedAudioUrl && !isRecording && (
+      <audio src={recordedAudioUrl} controls className="w-full h-8">
+        <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
+      </audio>
+    )}
+    {isTranscribing && <p className="pixel-font-small text-yellow-400 animate-pulse text-center mt-2">TRANSCRIBING AUDIO...</p>}
+    {transcribedText && !isTranscribing && (
+      <div className="w-full p-2 mt-2 border border-dashed border-green-700 bg-black/50">
+        <p className="pixel-font-small text-xs text-green-300 italic">"{transcribedText}"</p>
+      </div>
+    )}
+  </div>
+);
+
+// Sub-component for theme selector to reduce main component complexity
+const ThemeSelector: React.FC<{
+  selectedTheme: string;
+  onThemeSelect: (theme: string) => void;
+  playSound: (id?: string) => void;
+}> = ({ selectedTheme, onThemeSelect, playSound }) => (
+  <div>
+    <p className="pixel-font-small text-xs text-left text-yellow-400 mb-2">SELECT VIDEO THEME:</p>
+    <div className="theme-selector-grid">
+      {Object.entries(THEMATIC_BACKGROUNDS).map(([name, url]) => (
+        <button
+          type="button"
+          key={name}
+          title={name}
+          className={`theme-item ${url === '' ? 'none-theme' : ''} ${selectedTheme === name ? 'selected' : ''}`}
+          onClick={() => {
+            playSound();
+            onThemeSelect(name);
+          }}
+        >
+          <div className="theme-item-preview">
+            {url ? (
+              <img src={sanitizeUrl(url)} alt={`${name} preview`} className="w-full h-full object-cover" />
+            ) : (
+              <span className="material-symbols-outlined">block</span>
+            )}
+          </div>
+          <div className="theme-item-name">{name}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// Sub-component for sharing controls to reduce main component complexity
+
+
 const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, onSave, isSaved, playSound }: RecipeResultProps) => {
   const [videoGenerationStep, setVideoGenerationStep] = React.useState<'idle' | 'generating'>('idle');
   const [videoLoadingMessage, setVideoLoadingMessage] = React.useState(VIDEO_GENERATION_MESSAGES[0]);
@@ -489,8 +559,9 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
           {/* Left Column: Image and Video */}
           <div className="flex flex-col items-center space-y-4">
             {videoUrl ? (
-                <div 
+                <section
                   className="w-full aspect-square video-container"
+                  aria-label="Recipe video player with playback controls"
                   onMouseEnter={() => setShowControls(true)}
                   onMouseLeave={() => setShowControls(false)}
                   onFocus={() => setShowControls(true)}
@@ -522,7 +593,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                   aria-label="Video and audio volume"
                         />
                      </div>
-                </div>
+                </section>
             ) : (
                 <>
                   {safeImageSrc ? (
@@ -544,51 +615,19 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
                          <input id="image-upload" type="file" accept="image/jpeg, image/png" onChange={handleImageUpload} className="hidden" />
                          <p className="pixel-font-small text-xs text-gray-400">Add a custom title image.</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isRecording ? (
-                          <button onClick={handleStopRecording} className="arcade-button-small bg-red-600 border-red-500 w-1/2 animate-pulse">STOP</button>
-                        ) : (
-                          <button onClick={handleStartRecording} className="arcade-button-small w-1/2">{recordedAudioUrl ? 'AUDIO OK!' : 'REC VOICEOVER'}</button>
-                        )}
-                         <p className="pixel-font-small text-xs text-gray-400">Record a narration.</p>
-                      </div>
-                      {recordedAudioUrl && !isRecording && (
-                        <audio src={recordedAudioUrl} controls className="w-full h-8">
-                          <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
-                        </audio>
-                      )}
-                      {isTranscribing && <p className="pixel-font-small text-yellow-400 animate-pulse text-center mt-2">TRANSCRIBING AUDIO...</p>}
-                      {transcribedText && !isTranscribing && (
-                        <div className="w-full p-2 mt-2 border border-dashed border-green-700 bg-black/50">
-                            <p className="pixel-font-small text-xs text-green-300 italic">"{transcribedText}"</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="pixel-font-small text-xs text-left text-yellow-400 mb-2">SELECT VIDEO THEME:</p>
-                        <div className="theme-selector-grid">
-                          {Object.entries(THEMATIC_BACKGROUNDS).map(([name, url]) => (
-                            <button
-                              type="button"
-                              key={name}
-                              title={name}
-                              className={`theme-item ${url === '' ? 'none-theme' : ''} ${selectedTheme === name ? 'selected' : ''}`}
-                              onClick={() => {
-                                playSound();
-                                setSelectedTheme(name);
-                              }}
-                            >
-                              <div className="theme-item-preview">
-                                {url ? (
-                                  <img src={sanitizeUrl(url)} alt={`${name} preview`} className="w-full h-full object-cover" />
-                                ) : (
-                                  <span className="material-symbols-outlined">block</span>
-                                )}
-                              </div>
-                              <div className="theme-item-name">{name}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <RecordingControls
+                        isRecording={isRecording}
+                        recordedAudioUrl={recordedAudioUrl}
+                        isTranscribing={isTranscribing}
+                        transcribedText={transcribedText}
+                        onStartRecording={() => void handleStartRecording()}
+                        onStopRecording={handleStopRecording}
+                      />
+                      <ThemeSelector
+                        selectedTheme={selectedTheme}
+                        onThemeSelect={setSelectedTheme}
+                        playSound={playSound}
+                      />
                    </div>
                 </>
             )}

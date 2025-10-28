@@ -117,37 +117,13 @@ const SavedRecipesModal: React.FC<SavedRecipesModalProps> = ({ recipes, onClose,
               </button>
             </div>
             {recipes.length > 0 ? (
-              <div role="list" className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+              <ul className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
                 {recipes.map((savedItem) => {
                   const isOnchain = savedItem.source === 'onchain';
                   const txUrl = savedItem.txHash ? `https://sepolia.basescan.org/tx/${savedItem.txHash}` : null;
 
-                  let controls: React.ReactNode;
-                  if (isOnchain) {
-                    controls = (
-                      <div className="flex gap-2">
-                        <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
-                      </div>
-                    );
-                  } else if (confirmDelete === savedItem.recipe.dishName) {
-                    controls = (
-                      <div className="flex gap-2 items-center animate-shake">
-                        <span className="pixel-font-small text-yellow-400">ARE YOU SURE?</span>
-                        <button onClick={() => handleDeleteClick(savedItem.recipe.dishName)} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">YES</button>
-                        <button onClick={() => { playSound(); setConfirmDelete(null); }} className="arcade-button-small">NO</button>
-                      </div>
-                    );
-                  } else {
-                    controls = (
-                      <div className="flex gap-2">
-                        <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
-                        <button onClick={() => { playSound(); setConfirmDelete(savedItem.recipe.dishName); }} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">DEL</button>
-                      </div>
-                    );
-                  }
-
                   return (
-                    <div role="listitem" key={`${savedItem.recipe.dishName}-${savedItem.txHash ?? savedItem.creator ?? 'local'}`} className="flex justify-between items-center p-2 bg-black/30 border border-green-700">
+                    <li key={`${savedItem.recipe.dishName}-${savedItem.txHash ?? savedItem.creator ?? 'local'}`} className="flex justify-between items-center p-2 bg-black/30 border border-green-700">
                       <div className="flex flex-col items-start">
                         <span className="pixel-font-small truncate pr-2 max-w-[220px]">{savedItem.recipe.dishName}</span>
                         {isOnchain && (
@@ -159,11 +135,28 @@ const SavedRecipesModal: React.FC<SavedRecipesModalProps> = ({ recipes, onClose,
                           </div>
                         )}
                       </div>
-                      {controls}
-                    </div>
+                      <div className="flex gap-2">
+                        {isOnchain && (
+                          <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
+                        )}
+                        {!isOnchain && confirmDelete !== savedItem.recipe.dishName && (
+                          <>
+                            <button onClick={() => onLoad(savedItem)} className="arcade-button-small">LOAD</button>
+                            <button onClick={() => { playSound(); setConfirmDelete(savedItem.recipe.dishName); }} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">DEL</button>
+                          </>
+                        )}
+                        {!isOnchain && confirmDelete === savedItem.recipe.dishName && (
+                          <>
+                            <span className="pixel-font-small text-yellow-400">ARE YOU SURE?</span>
+                            <button onClick={() => handleDeleteClick(savedItem.recipe.dishName)} className="arcade-button-small bg-red-600 border-red-600 hover:bg-red-400 hover:border-red-400">YES</button>
+                            <button onClick={() => { playSound(); setConfirmDelete(null); }} className="arcade-button-small">NO</button>
+                          </>
+                        )}
+                      </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             ) : (
               <p className="pixel-font-small text-center py-8">NO RECIPES SAVED YET.</p>
             )}

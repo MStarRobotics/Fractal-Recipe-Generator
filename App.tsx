@@ -113,6 +113,71 @@ const App: React.FC = () => {
     setIsMetamaskDetected(isMetaMaskAvailable());
   }, []);
 
+    // Helper: extract link payload from Firebase or Google Identity profile
+  const buildLinkPayload = React.useCallback(
+    (
+      firebaseProfile?: User,
+      identity?: GoogleIdentityProfile
+    ): { googleId: string; email?: string; displayName?: string; googleAccessToken?: string; provider: 'firebase' | 'google-identity' } | null => {
+      if (firebaseProfile) {
+        return {
+          googleId: firebaseProfile.uid,
+          email: firebaseProfile.email ?? undefined,
+          displayName: firebaseProfile.displayName ?? undefined,
+          provider: 'firebase',
+        };
+      }
+      if (identity) {
+        return {
+          googleId: identity.googleId,
+          email: identity.email ?? undefined,
+          displayName: identity.displayName ?? undefined,
+          googleAccessToken: identity.accessToken,
+          provider: 'google-identity',
+        };
+      }
+      return null;
+    },
+    []
+  );
+
+  // Helper: handle Firebase custom token after account link
+  const handleFirebaseCustomToken = React.useCallback(async (token: string): Promise<void> => {
+    try {
+      await signInWithFirebaseCustomToken(token);
+      setGoogleAuthStatus('GOOGLE ACCOUNT LINKED WITH WALLET');
+    } catch (firebaseError) {
+      console.error('Failed to activate Firebase custom token', firebaseError);
+      setGoogleAuthStatus('GOOGLE LINKED, FIREBASE TOKEN FAILED');
+    }
+  }, []);
+
+  // Helper: activate Firebase for wallet sign-in
+  const activateFirebaseForWallet = React.useCallback(async (token: string): Promise<void> => {
+    try {
+      await signInWithFirebaseCustomToken(token);
+      setGoogleAuthStatus('WALLET SIGNED IN WITH FIREBASE');
+    } catch (firebaseError) {
+      console.error('Failed to activate Firebase session for wallet login', firebaseError);
+      setGoogleAuthStatus('FIREBASE SYNC FAILED');
+    }
+  }, []);
+
+  // Helper: fetch and set auth profile, or create a fallback
+  const loadAuthProfile = React.useCallback(async (token: string, address: Address, linkedGoogleId: string | null | undefined): Promise<void> => {
+    try {
+      const profile = await fetchAuthenticatedProfile(token);
+      setAuthProfile(profile);
+    } catch (profileError) {
+      console.warn('Failed to load authenticated profile', profileError);
+      setAuthProfile({
+        address,
+        linkedGoogleId: linkedGoogleId ?? null,
+        wallets: [address],
+      });
+    }
+  }, []);
+
   const linkGoogleAccountToWallet = React.useCallback(
     async ({ firebaseUser: firebaseProfile, identity, tokenOverride }: { firebaseUser?: User; identity?: GoogleIdentityProfile; tokenOverride?: string }) => {
       const activeToken = tokenOverride ?? authToken;
@@ -139,24 +204,7 @@ const App: React.FC = () => {
       lastLinkedGoogleIdentifierRef.current = providerId;
 
       try {
-        let linkPayload: { googleId: string; email?: string; displayName?: string; googleAccessToken?: string; provider: 'firebase' | 'google-identity' } | null = null;
-        if (firebaseProfile) {
-          linkPayload = {
-            googleId: firebaseProfile.uid,
-            email: firebaseProfile.email ?? undefined,
-            displayName: firebaseProfile.displayName ?? undefined,
-            provider: 'firebase',
-          };
-        } else if (identity) {
-          linkPayload = {
-            googleId: identity.googleId,
-            email: identity.email ?? undefined,
-            displayName: identity.displayName ?? undefined,
-            googleAccessToken: identity.accessToken,
-            provider: 'google-identity',
-          };
-        }
-
+        const linkPayload = buildLinkPayload(firebaseProfile, identity);
         if (!linkPayload) {
           setGoogleAuthStatus('GOOGLE SIGN-IN REQUIRED');
           return;
@@ -176,13 +224,7 @@ const App: React.FC = () => {
         });
 
         if (profile.firebaseCustomToken) {
-          try {
-            await signInWithFirebaseCustomToken(profile.firebaseCustomToken);
-            setGoogleAuthStatus('GOOGLE ACCOUNT LINKED WITH WALLET');
-          } catch (firebaseError) {
-            console.error('Failed to activate Firebase custom token', firebaseError);
-            setGoogleAuthStatus('GOOGLE LINKED, FIREBASE TOKEN FAILED');
-          }
+          await handleFirebaseCustomToken(profile.firebaseCustomToken);
         } else {
           setGoogleAuthStatus('GOOGLE ACCOUNT LINKED');
         }
@@ -196,7 +238,7 @@ const App: React.FC = () => {
         console.error('Failed to link Google account', error);
       }
     },
-    [authToken, linkedGoogleId]
+    [authToken, linkedGoogleId, buildLinkPayload, handleFirebaseCustomToken]
   );
 
   const handleSignInWithMetamask = React.useCallback(async (address: Address): Promise<string | null> => {
@@ -225,27 +267,12 @@ const App: React.FC = () => {
       setAuthStatus(verification.linkedGoogleId ? 'SIGNED IN (LINKED ACCOUNT)' : 'SIGNED IN WITH WALLET');
 
       if (verification.firebaseCustomToken) {
-        try {
-          await signInWithFirebaseCustomToken(verification.firebaseCustomToken);
-          setGoogleAuthStatus('WALLET SIGNED IN WITH FIREBASE');
-        } catch (firebaseError) {
-          console.error('Failed to activate Firebase session for wallet login', firebaseError);
-          setGoogleAuthStatus('FIREBASE SYNC FAILED');
-        }
+        await activateFirebaseForWallet(verification.firebaseCustomToken);
       }
 
-      try {
-        const profile = await fetchAuthenticatedProfile(verification.token);
-        setAuthProfile(profile);
-      } catch (profileError) {
-        console.warn('Failed to load authenticated profile', profileError);
-        setAuthProfile({
-          address: normalizedAddress,
-          linkedGoogleId: verification.linkedGoogleId ?? null,
-          wallets: [normalizedAddress],
-        });
-      }
-
+      await loadAuthProfile(verification.token, normalizedAddress, verification.linkedGoogleId);
+      
+      // Auto-link Google if available and not already linked
       if (firebaseUser && !verification.linkedGoogleId) {
         await linkGoogleAccountToWallet({ firebaseUser, tokenOverride: verification.token });
       } else if (googleIdentityProfile && !verification.linkedGoogleId) {
@@ -266,7 +293,7 @@ const App: React.FC = () => {
       console.warn('MetaMask sign-in failed', error);
       return null;
     }
-  }, [authProfile, authToken, clearAuthState, detectProviderAvailability, firebaseUser, googleIdentityProfile, linkGoogleAccountToWallet]);
+  }, [authProfile, authToken, clearAuthState, detectProviderAvailability, firebaseUser, googleIdentityProfile, linkGoogleAccountToWallet, activateFirebaseForWallet, loadAuthProfile]);
 
   const refreshMembershipStatus = React.useCallback(async (address: Address): Promise<boolean> => {
     setIsMembershipLoading(true);
