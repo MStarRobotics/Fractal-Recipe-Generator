@@ -1,32 +1,11 @@
-name: "CodeQL Configuration"
-
-# Exclude server and scripts directories from JavaScript analysis
-# These directories are Node.js backend code and don't follow the same
-# patterns as the frontend TypeScript/React code
+## CodeQL default setup configuration (compatible with default setup)
+## Note: Default setup only supports 'paths-ignore'. Any additional keys
+## like 'queries', 'paths', or 'packs' would be treated as an advanced
+## configuration and will cause the "advanced configurations cannot be
+## processed" error. Keep this file minimal.
 
 paths-ignore:
   - 'server/**'
   - 'scripts/**'
   - 'dist/**'
   - 'node_modules/**'
-
-# Only analyze source code directories
-paths:
-  - '**/*.ts'
-  - '**/*.tsx'
-  - '**/*.js'
-  - '**/*.jsx'
-
-# Exclude test and configuration files
-exclude:
-  - '**/*.test.ts'
-  - '**/*.test.tsx'
-  - '**/*.spec.ts'
-  - '**/*.spec.tsx'
-  - '**/*.config.js'
-  - '**/*.config.mjs'
-  - '**/*.config.ts'
-
-# Query suite configuration
-queries:
-  - uses: security-and-quality
