@@ -9,6 +9,7 @@ import { generateRecipe, generateImageForRecipe } from './services/geminiService
 import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES } from './constants';
 import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename, fetchMembershipPrice, checkLifetimeMembership, purchaseLifetimeMembership, DEFAULT_MEMBERSHIP_PRICE_WEI } from './services/baseRegistry';
 import { clearPersistedToken, fetchAuthenticatedProfile, isMetaMaskAvailable, linkWalletToGoogleAccount, persistAuthToken, requestNonce, retrievePersistedToken, signMessageWithWallet, verifySignature, logout as logoutSession } from './services/authService';
+import { preloadGoogleIdentity } from './services/googleIdentity';
 import type { User } from 'firebase/auth';
 import { firebaseSignOut, isFirebaseReady, signInWithFirebaseCustomToken, signInWithGooglePopup, subscribeToFirebaseAuth } from './services/firebaseClient';
 import type { GoogleIdentityProfile } from './services/googleIdentity';
@@ -358,6 +359,10 @@ const App: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
+    // Preload Google Identity script early so the click handler can open the
+    // consent popup within the same user gesture (prevents popup blockers).
+    void preloadGoogleIdentity();
+
     detectProviderAvailability();
     const globalWindow =
       typeof globalThis === 'object' &&

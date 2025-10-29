@@ -54,6 +54,19 @@ const loadGoogleIdentityScript = async (): Promise<void> => {
   return scriptPromise;
 };
 
+// Preload the Google Identity Services script early so that any popup/consent UI
+// can be triggered within a direct user gesture (click) without being blocked
+// by browsers like Safari/Chrome. Exported for callers (e.g., App) to invoke on mount.
+export const preloadGoogleIdentity = async (): Promise<void> => {
+  try {
+    await loadGoogleIdentityScript();
+  } catch (err) {
+    // Swallow preload errors; a subsequent interactive call will surface a clearer message
+    // and we don't want this to break app startup.
+    console.warn('Google Identity script preload failed:', err);
+  }
+};
+
 export type GoogleIdentityProfile = {
   googleId: string;
   email?: string;
@@ -100,6 +113,10 @@ export const signInWithGoogleIdentity = async (): Promise<GoogleIdentityProfile>
     throw new Error('Set VITE_GOOGLE_OAUTH_CLIENT_ID to enable Google sign-in.');
   }
 
+  // The script is expected to be preloaded during app initialization to retain
+  // the user gesture context for the popup. We still attempt a quick load here
+  // in case preload was skipped, but note some browsers may block the popup if
+  // this lazy load occurs after the click.
   await loadGoogleIdentityScript();
 
   return new Promise<GoogleIdentityProfile>((resolve, reject) => {
