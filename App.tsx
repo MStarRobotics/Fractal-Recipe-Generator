@@ -9,11 +9,9 @@ import { generateRecipe, generateImageForRecipe } from './services/geminiService
 import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES } from './constants';
 import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename, fetchMembershipPrice, checkLifetimeMembership, purchaseLifetimeMembership, DEFAULT_MEMBERSHIP_PRICE_WEI } from './services/baseRegistry';
 import { clearPersistedToken, fetchAuthenticatedProfile, isMetaMaskAvailable, linkWalletToGoogleAccount, persistAuthToken, requestNonce, retrievePersistedToken, signMessageWithWallet, verifySignature, logout as logoutSession } from './services/authService';
-import { preloadGoogleIdentity } from './services/googleIdentity';
 import type { User } from 'firebase/auth';
 import { firebaseSignOut, isFirebaseReady, signInWithFirebaseCustomToken, signInWithGooglePopup, subscribeToFirebaseAuth } from './services/firebaseClient';
-import type { GoogleIdentityProfile } from './services/googleIdentity';
-import { revokeGoogleIdentityToken, signInWithGoogleIdentity } from './services/googleIdentity';
+import { preloadGoogleIdentity, revokeGoogleIdentityToken, signInWithGoogleIdentity, type GoogleIdentityProfile } from './services/googleIdentity';
 
 const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed' | 'Neutral' | 'Unknown' => {
   // Clean text of characters that are common across many scripts
