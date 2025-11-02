@@ -46,9 +46,24 @@ app.use(cors(corsOptions));
 app.use(helmet());
 app.disable('x-powered-by');
 
+const createRateLimiter = (config) =>
+  rateLimit({
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' },
+    ...config,
+  });
+
 // GitHub Webhook endpoint (raw body + optional signature verification)
 // Payload URL when deployed: https://<your-host>/github-webhook
-app.use('/github-webhook', express.raw({ type: '*/*', limit: '200kb' }));
+const webhookRateLimit = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per window per IP
+  skipSuccessfulRequests: false,
+});
+
+app.use('/github-webhook', express.raw({ type: 'application/json', limit: '200kb' }));
+
 const verifyGithubSignature = (secret, payloadBuffer, signatureHeader) => {
   if (!secret || !signatureHeader) return true; // allow when not configured
   const expected = 'sha256=' + createHmac('sha256', secret).update(payloadBuffer).digest('hex');
@@ -59,10 +74,15 @@ const verifyGithubSignature = (secret, payloadBuffer, signatureHeader) => {
   }
 };
 
-app.post('/github-webhook', (req, res) => {
-  const event = req.header('X-GitHub-Event') ?? 'unknown';
-  const delivery = req.header('X-GitHub-Delivery') ?? 'n/a';
+app.post('/github-webhook', webhookRateLimit, (req, res) => {
+  const event = req.header('X-GitHub-Event');
+  const delivery = req.header('X-GitHub-Delivery');
   const signature = req.header('X-Hub-Signature-256');
+
+  if (!event || !delivery) {
+    res.status(400).json({ error: 'Missing GitHub webhook headers' });
+    return;
+  }
 
   const isValid = verifyGithubSignature(GITHUB_WEBHOOK_SECRET, req.body, signature);
   if (!isValid) {
@@ -73,26 +93,23 @@ app.post('/github-webhook', (req, res) => {
   try {
     // Best-effort parse; keep raw for signature
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : JSON.parse(req.body.toString('utf8'));
-    console.log(`[GitHub Webhook] ${event} (${delivery})`, {
-      repository: payload?.repository?.full_name,
-      action: payload?.action,
+    const repoName = payload?.repository?.full_name || 'unknown';
+    const action = payload?.action || 'n/a';
+    // Log structured data to avoid format string vulnerability
+    console.log('[GitHub Webhook]', {
+      event,
+      delivery,
+      repository: repoName,
+      action,
     });
   } catch (e) {
-    console.warn('Received webhook but failed to parse JSON payload');
+    console.warn('Received webhook but failed to parse JSON payload:', e instanceof Error ? e.message : String(e));
   }
   res.status(200).json({ ok: true });
 });
 
 // JSON body parser for the rest of the API
 app.use(express.json({ limit: '50kb' }));
-
-const createRateLimiter = (config) =>
-  rateLimit({
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'Too many requests. Please try again later.' },
-    ...config,
-  });
 
 const pendingNonces = new Map();
 const walletDirectory = new Map();
