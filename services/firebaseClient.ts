@@ -3,6 +3,9 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
   GithubAuthProvider,
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -12,6 +15,7 @@ import {
   signInWithPopup,
   signInWithCustomToken,
   signOut,
+  type ActionCodeSettings,
   type ConfirmationResult,
   type Auth,
   type User,
@@ -134,33 +138,96 @@ export const signInAnonymouslyClient = async (): Promise<UserCredential> => {
   return signInAnonymously(auth);
 };
 
-export const ensurePhoneRecaptcha = (containerId: string): RecaptchaVerifier => {
+export const ensurePhoneRecaptcha = (containerId: string, size: 'invisible' | 'normal' = 'normal'): RecaptchaVerifier => {
   const auth = getFirebaseAuthInstance();
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
   }
-  // Firebase v9 uses RecaptchaVerifier without manually passing site key; key must be configured in Console.
-  // If you use enterprise or need explicit key, you can set grecaptcha params here.
-  // We initialize an invisible verifier by default.
+  // Create visible reCAPTCHA widget by default for better UX
   const verifier = new RecaptchaVerifier(auth, containerId, {
-    size: 'invisible',
+    size,
+    callback: () => {
+      // reCAPTCHA solved, allow signInWithPhoneNumber
+    },
+    'expired-callback': () => {
+      // Response expired. Ask user to solve reCAPTCHA again.
+      console.warn('reCAPTCHA expired, please verify again');
+    },
   });
   return verifier;
 };
 
-export const signInWithPhone = async (phoneNumber: string, recaptchaContainerId: string): Promise<ConfirmationResult> => {
+export const signInWithPhone = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
   const auth = getFirebaseAuthInstance();
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
   }
-  const verifier = ensurePhoneRecaptcha(recaptchaContainerId);
   // Returns a confirmation result; the caller must call confirmation.confirm(code) in the UI.
-  const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+  const confirmation = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
   return confirmation;
 };
 
 export const confirmPhoneCode = async (confirmation: ConfirmationResult, code: string): Promise<UserCredential> => {
   return confirmation.confirm(code);
+};
+
+/**
+ * Send a sign-in link to the user's email for passwordless authentication.
+ * @param email - User's email address
+ * @param actionCodeSettings - Configuration for the email link
+ */
+export const sendEmailSignInLink = async (email: string, actionCodeSettings: ActionCodeSettings): Promise<void> => {
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
+  }
+  await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+  // Save email locally to complete sign-in flow on the same device
+  window.localStorage.setItem('emailForSignIn', email);
+};
+
+/**
+ * Check if the current URL is a sign-in link from email.
+ */
+export const isEmailSignInLink = (): boolean => {
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    return false;
+  }
+  return isSignInWithEmailLink(auth, window.location.href);
+};
+
+/**
+ * Complete the email link sign-in process.
+ * @param email - User's email address (optional if stored locally)
+ */
+export const completeEmailSignIn = async (email?: string): Promise<UserCredential> => {
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
+  }
+
+  let userEmail = email;
+  
+  // Get the email if available from local storage
+  if (!userEmail) {
+    const storedEmail = window.localStorage.getItem('emailForSignIn');
+    if (storedEmail) {
+      userEmail = storedEmail;
+    }
+  }
+
+  // If still no email, throw error (caller should prompt the user)
+  if (!userEmail) {
+    throw new Error('Email address is required to complete sign-in. Please provide your email.');
+  }
+
+  const result = await signInWithEmailLink(auth, userEmail, window.location.href);
+  
+  // Clear email from storage after successful sign-in
+  window.localStorage.removeItem('emailForSignIn');
+  
+  return result;
 };
 
 export const signInWithFirebaseCustomToken = async (token: string): Promise<UserCredential> => {

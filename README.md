@@ -76,20 +76,61 @@ OTP codes are logged to the server console only while `NODE_ENV !== 'production'
 
 ### Firebase Authentication SDK (client)
 
-If you want the “real” Firebase Auth experience in the browser (recommended), fill the `VITE_FIREBASE_*` variables and enable providers in Firebase Console:
+If you want the "real" Firebase Auth experience in the browser (recommended), fill the `VITE_FIREBASE_*` variables and enable providers in Firebase Console:
 
-- Email/password
-- Federated GitHub (create a GitHub OAuth app and paste the client/secret in Firebase console)
-- Phone number (configure reCAPTCHA v2 site key and set it to `VITE_FIREBASE_RECAPTCHA_SITE_KEY`)
-- Anonymous
+- **Email/password** – classic credentials
+- **Email link (passwordless)** – one-click sign-in via email
+- **Phone number** – SMS-based OTP authentication with reCAPTCHA
+- **Federated GitHub** – create a GitHub OAuth app and paste the client/secret in Firebase console
+- **Google** – OAuth via popup or redirect
+- **Anonymous** – temporary guest accounts
 
 The client exposes helpers in `services/firebaseClient.ts`:
 
-- `createUserWithEmail(email, password)` and `signInWithEmail(email, password)`
-- `signInWithGithubPopup()`
-- `signInWithPhoneNumber(phone, recaptchaContainerId)` (uses `RecaptchaVerifier`)
-- `signInAnonymouslyClient()`
-- `firebaseSignOut()`
+#### Email & Password
+- `createUserWithEmail(email, password)` – register new user
+- `signInWithEmail(email, password)` – sign in existing user
+
+#### Email Link (Passwordless)
+- `sendEmailSignInLink(email, actionCodeSettings)` – send magic link to email
+- `isEmailSignInLink()` – check if current URL is a sign-in link
+- `completeEmailSignIn(email?)` – complete sign-in from link
+
+Example ActionCodeSettings:
+```typescript
+const actionCodeSettings = {
+  url: 'https://yourdomain.com/finishSignUp',
+  handleCodeInApp: true,
+  iOS: { bundleId: 'com.example.ios' },
+  android: { packageName: 'com.example.android', installApp: true },
+  linkDomain: 'yourdomain.com' // optional custom domain
+};
+```
+
+#### Phone Authentication
+- `ensurePhoneRecaptcha(containerId, size?)` – create reCAPTCHA verifier ('normal' or 'invisible')
+- `signInWithPhone(phoneNumber, recaptchaVerifier)` – request SMS code
+- `confirmPhoneCode(confirmation, code)` – verify OTP
+
+Phone auth flow:
+1. Add a `<div id="recaptcha-container"></div>` to your HTML
+2. Create verifier: `const verifier = ensurePhoneRecaptcha('recaptcha-container', 'normal')`
+3. Request SMS: `const confirmation = await signInWithPhone('+1234567890', verifier)`
+4. User enters code from SMS
+5. Complete: `await confirmPhoneCode(confirmation, code)`
+
+#### Federated & Other
+- `signInWithGooglePopup()` – Google OAuth popup
+- `signInWithGithubPopup()` – GitHub OAuth popup
+- `signInAnonymouslyClient()` – temporary guest session
+- `firebaseSignOut()` – sign out current user
+
+#### Firebase Console Setup
+
+1. **Phone Auth**: Authentication → Sign-in method → Phone → Enable. Optionally configure test phone numbers (e.g., +1 650-555-3434 with code 654321) for development.
+2. **Email Link**: Authentication → Sign-in method → Email/Password → Enable "Email link (passwordless sign-in)".
+3. **Authorized Domains**: Settings → Authorized domains → Add your production domain and `localhost` (if testing locally).
+4. **reCAPTCHA** (for phone): No manual setup needed; Firebase auto-configures. For custom tuning, see Firebase Console → Authentication → Settings.
 
 These can be wired into UI buttons as needed. For SMS delivery of OTP in server flows, integrate Twilio or a similar provider; the server currently returns a demo OTP in development.
 
