@@ -7,12 +7,12 @@ import {
 } from '../../services/firebaseClient';
 
 interface PhoneAuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (phoneNumber: string) => void;
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly onSuccess: (phoneNumber: string) => void;
 }
 
-export function PhoneAuthModal({ isOpen, onClose, onSuccess }: PhoneAuthModalProps) {
+export function PhoneAuthModal({ isOpen, onClose, onSuccess }: Readonly<PhoneAuthModalProps>) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [step, setStep] = useState<'phone' | 'verify'>('phone');
@@ -66,17 +66,32 @@ export function PhoneAuthModal({ isOpen, onClose, onSuccess }: PhoneAuthModalPro
 
   return (
     <div
+      role='dialog'
+      aria-modal='true'
+      aria-labelledby='phone-auth-title'
       className='fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm'
       onClick={handleClose}
+      onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Escape') handleClose();
+      }}
     >
       <div
+        role='document'
         className='relative w-full max-w-md bg-white rounded-2xl shadow-2xl transform transition-all'
-        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+          e.stopPropagation();
+        }}
+        onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
+          e.stopPropagation();
+        }}
       >
         <div className='flex items-center justify-between p-6 border-b border-gray-200'>
-          <h2 className='text-2xl font-bold text-gray-900'>Phone Authentication</h2>
+          <h2 id='phone-auth-title' className='text-2xl font-bold text-gray-900'>
+            Phone Authentication
+          </h2>
           <button
             onClick={handleClose}
+            aria-label='Close dialog'
             className='text-gray-400 hover:text-gray-600 transition-colors'
           >
             <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>

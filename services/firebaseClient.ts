@@ -29,7 +29,7 @@ const phoneRecaptchaVerifiers = new Map<string, RecaptchaVerifier>();
 const getSafeLocation = (): Location | null => {
   try {
     const { location } = globalThis as typeof globalThis & { location?: Location };
-    return location !== undefined ? location : null;
+    return location ?? null;
   } catch {
     return null;
   }
@@ -38,7 +38,7 @@ const getSafeLocation = (): Location | null => {
 const getSafeLocalStorage = (): Storage | null => {
   try {
     const { localStorage } = globalThis as typeof globalThis & { localStorage?: Storage };
-    return localStorage !== undefined ? localStorage : null;
+    return localStorage ?? null;
   } catch {
     return null;
   }
