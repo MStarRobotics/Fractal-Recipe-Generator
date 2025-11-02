@@ -573,7 +573,7 @@ app.post('/auth/verify', createRateLimiter({ windowMs: 60_000, limit: 20 }), asy
 
 // Rate-limited route: 20 requests per minute
 // lgtm[js/missing-rate-limiting]
-app.post('/auth/link', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 20 }), async (req, res) => {
+app.post('/auth/link', createRateLimiter({ windowMs: 60_000, limit: 20 }), authenticateRequest, async (req, res) => {
   try {
     const { googleId, email, displayName, googleAccessToken } = req.body ?? {};
 
@@ -656,7 +656,7 @@ app.post('/auth/link', authenticateRequest, createRateLimiter({ windowMs: 60_000
 
 // Rate-limited route: 60 requests per minute
 // lgtm[js/missing-rate-limiting]
-app.get('/auth/profile', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 60 }), (req, res) => {
+app.get('/auth/profile', createRateLimiter({ windowMs: 60_000, limit: 60 }), authenticateRequest, (req, res) => {
   try {
     const normalizedAddress = normalizeAddress(req.auth.address);
     const walletRecord = buildWalletRecord(normalizedAddress);
@@ -680,7 +680,7 @@ app.get('/auth/profile', authenticateRequest, createRateLimiter({ windowMs: 60_0
 
 // Rate-limited route: 30 requests per minute
 // lgtm[js/missing-rate-limiting]
-app.post('/auth/logout', authenticateRequest, createRateLimiter({ windowMs: 60_000, limit: 30 }), (req, res) => {
+app.post('/auth/logout', createRateLimiter({ windowMs: 60_000, limit: 30 }), authenticateRequest, (req, res) => {
   const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Authorization token missing' });
