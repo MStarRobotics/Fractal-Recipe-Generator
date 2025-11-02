@@ -14,8 +14,12 @@ dist-ssr
 .env
 .env.*
 
-# Firebase service account (keep out of git)
-zero-e6888-firebase-adminsdk-fbsvc-c1f10a9df2.json
+# Firebase service accounts (keep out of git)
+zero-e6888-firebase-adminsdk-*.json
+
+# Firebase CLI local state
+.firebase/
+.firebaserc
 
 # Editor directories and files
 .vscode/*

@@ -95,42 +95,49 @@ These can be wired into UI buttons as needed. For SMS delivery of OTP in server 
 
 ## How to operate and run
 
-1) Install toolchain and dependencies
-```bash
-npm ci
-```
+1. Install toolchain and dependencies
 
-2) Populate `.env` (copy from `.env.example`). For Firebase Admin, escape newlines in `FIREBASE_PRIVATE_KEY` using `\n`.
+        ```bash
+        npm ci
+        ```
 
-3) Local quality gates
-```bash
-npm run lint
-npm run typecheck
-npm run build
-```
+2. Populate `.env` (copy from `.env.example`). For Firebase Admin, escape newlines in `FIREBASE_PRIVATE_KEY` using `\n`.
 
-4) Start backend and frontend (separate terminals)
-```bash
-npm run server    # http://localhost:4000
-npm run dev       # http://localhost:5173
-```
+3. Run local quality gates
 
-5) Test APIs quickly (optional)
-```bash
-curl http://localhost:4000/health
-```
+        ```bash
+        npm run lint
+        npm run typecheck
+        npm run build
+        ```
 
-6) E2E auth smoke test (server must be running)
-```bash
-npm run test:e2e-auth
-```
+4. Start backend and frontend (separate terminals)
+
+        ```bash
+        npm run server    # http://localhost:4000
+        npm run dev       # http://localhost:5173
+        ```
+
+5. Test APIs quickly (optional)
+
+        ```bash
+        curl http://localhost:4000/health
+        ```
+
+6. Execute the E2E auth smoke test (server must be running)
+
+        ```bash
+        npm run test:e2e-auth
+        ```
 
 Postman:
+
 - Import `postman/FractalAuth.postman_collection.json`
 - Set `baseUrl` to your server (default `http://localhost:4000`)
 - Use `token` variable after logging in to call protected endpoints
 
 Secrets hygiene:
+
 - `.env` and service-account JSON must not be committed (already git-ignored).
 - Use GitHub Actions Secrets for CI.
 - Rotate leaked keys immediately.
@@ -148,4 +155,5 @@ Vite + React + TypeScript • Tailwind • viem/wagmi • OnchainKit • Express
 - Enable GitHub’s secret scanning and CodeQL (workflows included).
 
 ## License
+
 Creative Commons BY‑NC‑SA 4.0. See `LICENSE.md`.
