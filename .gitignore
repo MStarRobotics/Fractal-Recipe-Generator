@@ -9,14 +9,6 @@ lerna-debug.log*
 
 node_modules
 dist
-
-# macOS
-.DS_Store
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 dist-ssr
 *.local
 .env

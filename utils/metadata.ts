@@ -19,16 +19,8 @@ const toBase64 = (value: string) => {
   }
 
   // Node.js fallback
-  type NodeBufferCtor = {
-    from: (
-      input: string,
-      encoding: 'utf8' | 'base64'
-    ) => { toString: (encoding: 'base64' | 'utf8') => string };
-  };
-  const maybeGlobal =
-    typeof globalThis === 'object'
-      ? (globalThis as unknown as { Buffer?: NodeBufferCtor })
-      : undefined;
+  type NodeBufferCtor = { from: (input: string, encoding: 'utf8' | 'base64') => { toString: (encoding: 'base64' | 'utf8') => string } };
+  const maybeGlobal = typeof globalThis === 'object' ? (globalThis as unknown as { Buffer?: NodeBufferCtor }) : undefined;
   const bufferCtor = maybeGlobal?.Buffer;
   if (bufferCtor) {
     return bufferCtor.from(value, 'utf8').toString('base64');
@@ -49,16 +41,8 @@ const fromBase64 = (value: string) => {
   }
 
   // Node.js fallback
-  type NodeBufferCtor = {
-    from: (
-      input: string,
-      encoding: 'utf8' | 'base64'
-    ) => { toString: (encoding: 'base64' | 'utf8') => string };
-  };
-  const maybeGlobal =
-    typeof globalThis === 'object'
-      ? (globalThis as unknown as { Buffer?: NodeBufferCtor })
-      : undefined;
+  type NodeBufferCtor = { from: (input: string, encoding: 'utf8' | 'base64') => { toString: (encoding: 'base64' | 'utf8') => string } };
+  const maybeGlobal = typeof globalThis === 'object' ? (globalThis as unknown as { Buffer?: NodeBufferCtor }) : undefined;
   const bufferCtor = maybeGlobal?.Buffer;
   if (bufferCtor) {
     return bufferCtor.from(value, 'base64').toString('utf8');
@@ -108,5 +92,8 @@ export const buildFallbackRecipe = (dishName: string, creator: string): Recipe =
       quantity: '1 record',
     },
   ],
-  instructions: [`Recipe stored by ${creator}`, 'Metadata payload missing or unreadable.'],
+  instructions: [
+    `Recipe stored by ${creator}`,
+    'Metadata payload missing or unreadable.',
+  ],
 });

@@ -15,9 +15,7 @@ export function AppProviders({ children }: Readonly<{ children: ReactNode }>) {
   createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
 
   if (!apiKey) {
-    console.warn(
-      'VITE_PUBLIC_ONCHAINKIT_API_KEY is not set; Basename resolution and wallet helpers will be unavailable.'
-    );
+    console.warn('VITE_PUBLIC_ONCHAINKIT_API_KEY is not set; Basename resolution and wallet helpers will be unavailable.');
   }
 
   return (

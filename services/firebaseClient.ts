@@ -24,25 +24,6 @@ import {
 
 let firebaseApp: FirebaseApp | null | undefined;
 let firebaseAuth: Auth | null | undefined;
-const phoneRecaptchaVerifiers = new Map<string, RecaptchaVerifier>();
-
-const getSafeLocation = (): Location | null => {
-  try {
-    const { location } = globalThis as typeof globalThis & { location?: Location };
-    return location !== undefined ? location : null;
-  } catch {
-    return null;
-  }
-};
-
-const getSafeLocalStorage = (): Storage | null => {
-  try {
-    const { localStorage } = globalThis as typeof globalThis & { localStorage?: Storage };
-    return localStorage !== undefined ? localStorage : null;
-  } catch {
-    return null;
-  }
-};
 
 const loadFirebaseConfig = () => {
   const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
@@ -133,10 +114,7 @@ export const signInWithGithubPopup = async (): Promise<UserCredential> => {
   return signInWithPopup(auth, provider);
 };
 
-export const createUserWithEmail = async (
-  email: string,
-  password: string
-): Promise<UserCredential> => {
+export const createUserWithEmail = async (email: string, password: string): Promise<UserCredential> => {
   const auth = getFirebaseAuthInstance();
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
@@ -160,19 +138,11 @@ export const signInAnonymouslyClient = async (): Promise<UserCredential> => {
   return signInAnonymously(auth);
 };
 
-export const ensurePhoneRecaptcha = (
-  containerId: string,
-  size: 'invisible' | 'normal' = 'normal'
-): RecaptchaVerifier => {
+export const ensurePhoneRecaptcha = (containerId: string, size: 'invisible' | 'normal' = 'normal'): RecaptchaVerifier => {
   const auth = getFirebaseAuthInstance();
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
   }
-  const existingVerifier = phoneRecaptchaVerifiers.get(containerId);
-  if (existingVerifier) {
-    return existingVerifier;
-  }
-
   // Create visible reCAPTCHA widget by default for better UX
   const verifier = new RecaptchaVerifier(auth, containerId, {
     size,
@@ -184,29 +154,10 @@ export const ensurePhoneRecaptcha = (
       console.warn('reCAPTCHA expired, please verify again');
     },
   });
-
-  phoneRecaptchaVerifiers.set(containerId, verifier);
   return verifier;
 };
 
-export const clearPhoneRecaptcha = (containerId: string): void => {
-  const verifier = phoneRecaptchaVerifiers.get(containerId);
-  if (!verifier) {
-    return;
-  }
-  try {
-    verifier.clear();
-  } catch (error) {
-    console.warn('Failed to clear phone reCAPTCHA verifier', error);
-  } finally {
-    phoneRecaptchaVerifiers.delete(containerId);
-  }
-};
-
-export const signInWithPhone = async (
-  phoneNumber: string,
-  recaptchaVerifier: RecaptchaVerifier
-): Promise<ConfirmationResult> => {
+export const signInWithPhone = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
   const auth = getFirebaseAuthInstance();
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
@@ -216,10 +167,7 @@ export const signInWithPhone = async (
   return confirmation;
 };
 
-export const confirmPhoneCode = async (
-  confirmation: ConfirmationResult,
-  code: string
-): Promise<UserCredential> => {
+export const confirmPhoneCode = async (confirmation: ConfirmationResult, code: string): Promise<UserCredential> => {
   return confirmation.confirm(code);
 };
 
@@ -228,20 +176,14 @@ export const confirmPhoneCode = async (
  * @param email - User's email address
  * @param actionCodeSettings - Configuration for the email link
  */
-export const sendEmailSignInLink = async (
-  email: string,
-  actionCodeSettings: ActionCodeSettings
-): Promise<void> => {
+export const sendEmailSignInLink = async (email: string, actionCodeSettings: ActionCodeSettings): Promise<void> => {
   const auth = getFirebaseAuthInstance();
   if (!auth) {
     throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
   }
   await sendSignInLinkToEmail(auth, email, actionCodeSettings);
   // Save email locally to complete sign-in flow on the same device
-  const storage = getSafeLocalStorage();
-  if (storage) {
-    storage.setItem('emailForSignIn', email);
-  }
+  window.localStorage.setItem('emailForSignIn', email);
 };
 
 /**
@@ -252,11 +194,7 @@ export const isEmailSignInLink = (): boolean => {
   if (!auth) {
     return false;
   }
-  const location = getSafeLocation();
-  if (!location) {
-    return false;
-  }
-  return isSignInWithEmailLink(auth, location.href);
+  return isSignInWithEmailLink(auth, window.location.href);
 };
 
 /**
@@ -270,11 +208,10 @@ export const completeEmailSignIn = async (email?: string): Promise<UserCredentia
   }
 
   let userEmail = email;
-
+  
   // Get the email if available from local storage
   if (!userEmail) {
-    const storage = getSafeLocalStorage();
-    const storedEmail = storage?.getItem('emailForSignIn');
+    const storedEmail = window.localStorage.getItem('emailForSignIn');
     if (storedEmail) {
       userEmail = storedEmail;
     }
@@ -285,17 +222,11 @@ export const completeEmailSignIn = async (email?: string): Promise<UserCredentia
     throw new Error('Email address is required to complete sign-in. Please provide your email.');
   }
 
-  const location = getSafeLocation();
-  if (!location) {
-    throw new Error('Cannot complete sign-in: window.location is unavailable in this environment.');
-  }
-
-  const result = await signInWithEmailLink(auth, userEmail, location.href);
-
+  const result = await signInWithEmailLink(auth, userEmail, window.location.href);
+  
   // Clear email from storage after successful sign-in
-  const storage = getSafeLocalStorage();
-  storage?.removeItem('emailForSignIn');
-
+  window.localStorage.removeItem('emailForSignIn');
+  
   return result;
 };
 

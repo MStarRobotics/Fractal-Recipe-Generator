@@ -34,16 +34,10 @@ const loadGoogleIdentityScript = async (): Promise<void> => {
   }
 
   scriptPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[data-google-identity="true"]'
-    );
+    const existing = document.querySelector<HTMLScriptElement>('script[data-google-identity="true"]');
     if (existing) {
       existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener(
-        'error',
-        () => reject(new Error('Failed to load Google Identity Services script.')),
-        { once: true }
-      );
+      existing.addEventListener('error', () => reject(new Error('Failed to load Google Identity Services script.')), { once: true });
       return;
     }
 
@@ -93,9 +87,7 @@ type TokenErrorResponse = {
   error_description?: string;
 };
 
-const isErrorResponse = (
-  response: TokenResponse | TokenErrorResponse
-): response is TokenErrorResponse => {
+const isErrorResponse = (response: TokenResponse | TokenErrorResponse): response is TokenErrorResponse => {
   return 'error' in response;
 };
 
@@ -109,12 +101,10 @@ type OpenIdUserInfo = {
 const isOpenIdUserInfo = (value: unknown): value is OpenIdUserInfo => {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
-  return (
-    typeof v.sub === 'string' &&
+  return typeof v.sub === 'string' &&
     (v.email === undefined || typeof v.email === 'string') &&
     (v.name === undefined || typeof v.name === 'string') &&
-    (v.picture === undefined || typeof v.picture === 'string')
-  );
+    (v.picture === undefined || typeof v.picture === 'string');
 };
 
 export const signInWithGoogleIdentity = async (): Promise<GoogleIdentityProfile> => {
@@ -130,8 +120,8 @@ export const signInWithGoogleIdentity = async (): Promise<GoogleIdentityProfile>
   await loadGoogleIdentityScript();
 
   return new Promise<GoogleIdentityProfile>((resolve, reject) => {
-    const globalScope = globalThis as typeof globalThis & { google?: GoogleIdentityGlobal };
-    const initTokenClient = globalScope.google?.accounts?.oauth2?.initTokenClient;
+  const globalScope = globalThis as typeof globalThis & { google?: GoogleIdentityGlobal };
+  const initTokenClient = globalScope.google?.accounts?.oauth2?.initTokenClient;
     if (typeof initTokenClient !== 'function') {
       reject(new Error('Google Identity Services SDK unavailable.'));
       return;
@@ -178,9 +168,7 @@ export const signInWithGoogleIdentity = async (): Promise<GoogleIdentityProfile>
   });
 };
 
-export const revokeGoogleIdentityToken = async (
-  token: string | null | undefined
-): Promise<void> => {
+export const revokeGoogleIdentityToken = async (token: string | null | undefined): Promise<void> => {
   if (!token) {
     return;
   }

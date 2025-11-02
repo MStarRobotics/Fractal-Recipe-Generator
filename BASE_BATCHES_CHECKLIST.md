@@ -1,9 +1,7 @@
 ## Objective
-
 Deliver Base Batches Builder Track–ready Fractal Recipe alpha without altering existing UI aesthetics.
 
 ## Steps
-
 1. **Configure Base Sepolia RPC** – Update env/config to use `https://sepolia.base.org` with fallback Coinbase node; expose chainId `0x14a34`.
 2. **Smart Contract Deployment** – Implement `FractalRecipeRegistry` storing recipe structs and emitting `RecipeSynthesized`; deploy + verify on Base Sepolia; save address & ABI JSON.
 3. **Frontend Contract Hookup** – Wire `SYNTHESIZE RECIPE` to write via viem/ethers; ensure MetaMask transaction flow succeeds; persist tx hash for docs.

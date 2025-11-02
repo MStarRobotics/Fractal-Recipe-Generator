@@ -4,13 +4,7 @@
 declare module 'react' {
   export type Key = string | number;
   export type ReactText = string | number;
-  export type ReactNode =
-    | ReactElement
-    | ReactText
-    | boolean
-    | null
-    | undefined
-    | Iterable<ReactNode>;
+  export type ReactNode = ReactElement | ReactText | boolean | null | undefined | Iterable<ReactNode>;
 
   export interface ReactElement<P = unknown, T = unknown> {
     type: T;
@@ -18,9 +12,7 @@ declare module 'react' {
     key: Key | null;
   }
 
-  export type FC<P = Record<string, unknown>> = (
-    props: P & { children?: ReactNode }
-  ) => JSX.Element | null;
+  export type FC<P = Record<string, unknown>> = (props: P & { children?: ReactNode }) => JSX.Element | null;
   export type PropsWithChildren<P = Record<string, unknown>> = P & { children?: ReactNode };
 
   export type Dispatch<A> = (value: A) => void;
@@ -67,30 +59,17 @@ declare module 'react' {
 
   export type HTMLAttributes = Record<string, unknown>;
   export type ButtonHTMLAttributes = HTMLAttributes;
-  export type InputHTMLAttributes = HTMLAttributes & {
-    value?: string | number;
-    onChange?: (event: ChangeEvent<unknown>) => void;
-  };
+  export type InputHTMLAttributes = HTMLAttributes & { value?: string | number; onChange?: (event: ChangeEvent<unknown>) => void };
   export type DetailedHTMLProps<E, T> = E & T;
 
-  export function createElement(
-    type: unknown,
-    props?: unknown,
-    ...children: ReactNode[]
-  ): ReactElement;
+  export function createElement(type: unknown, props?: unknown, ...children: ReactNode[]): ReactElement;
   export const Fragment: FC<{ children?: ReactNode }>;
   export const StrictMode: FC<{ children?: ReactNode }>;
 
   export function useState<S>(initialState: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
-  export function useState<S = undefined>(): [
-    S | undefined,
-    Dispatch<SetStateAction<S | undefined>>,
-  ];
+  export function useState<S = undefined>(): [S | undefined, Dispatch<SetStateAction<S | undefined>>];
 
-  export function useEffect(
-    effect: () => void | (() => void | undefined),
-    deps?: DependencyList
-  ): void;
+  export function useEffect(effect: () => void | (() => void | undefined), deps?: DependencyList): void;
   export function useMemo<T>(factory: () => T, deps?: DependencyList): T;
   export function useCallback<T extends (...args: any[]) => any>(fn: T, deps?: DependencyList): T;
 

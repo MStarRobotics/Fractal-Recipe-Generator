@@ -15,7 +15,6 @@ This project now supports **Phone (SMS OTP)** and **Email Link (passwordless)** 
 3. Enable the following providers:
 
 #### Phone Authentication
-
 - Click **Phone** → Enable
 - Firebase will auto-configure reCAPTCHA (no manual setup needed)
 - **Optional:** Add test phone numbers for development
@@ -23,7 +22,6 @@ This project now supports **Phone (SMS OTP)** and **Email Link (passwordless)** 
   - These bypass SMS and don't count toward quotas
 
 #### Email Link (Passwordless)
-
 - Click **Email/Password** → Enable
 - Check **Email link (passwordless sign-in)** → Enable
 
@@ -49,15 +47,9 @@ VITE_FIREBASE_MEASUREMENT_ID=G-ABCDEFG
 
 ---
 
-## � Auth Portal Component
+## 📱 Phone Authentication
 
-The `components/auth/AuthPortalModal.tsx` component surfaces MetaMask, phone, and email link sign-in flows inside a single popup. It wires together `PhoneAuthPanel` and `EmailLinkAuthPanel`, manages Firebase reCAPTCHA lifecycle automatically, and can be triggered from anywhere in the UI to provide a consistent authentication experience.
-
----
-
-## �📱 Phone Authentication
-
-### Phone Authentication Flow
+### Basic Flow
 
 ```typescript
 import { ensurePhoneRecaptcha, signInWithPhone, confirmPhoneCode } from './services/firebaseClient';
@@ -76,7 +68,7 @@ const result = await confirmPhoneCode(confirmation, userCode);
 console.log('Signed in:', result.user.phoneNumber);
 ```
 
-### Phone Example Component
+### Using the Example Component
 
 ```tsx
 import { PhoneAuthExample } from './components/auth/PhoneAuthExample';
@@ -86,46 +78,30 @@ function App() {
 }
 ```
 
-Under the hood, this wraps the reusable `PhoneAuthPanel`. When embedding the form inside your own modal, pass a unique `containerId` and optional callbacks:
-
-```tsx
-import { PhoneAuthPanel } from './components/auth/PhoneAuthExample';
-
-export function PhoneAuthModal() {
-  return <PhoneAuthPanel containerId='phone-auth-modal' heading='Verify your phone' />;
-}
-```
-
 ### Testing with Fictional Phone Numbers
 
 In Firebase Console → Phone numbers for testing:
-
 - Phone: `+1 650-555-3434`
 - Code: `654321`
 
 These numbers:
-
 - Don't send real SMS
 - Don't consume quotas
 - Work in development/CI environments
 
 ### reCAPTCHA Modes
 
-#### Normal (Visible Widget - Recommended)
-
+**Normal (Visible Widget - Recommended)**
 ```typescript
 const verifier = ensurePhoneRecaptcha('recaptcha-container', 'normal');
 ```
-
 - User sees and solves CAPTCHA
 - Better UX and security balance
 
-#### Invisible
-
+**Invisible**
 ```typescript
 const verifier = ensurePhoneRecaptcha('recaptcha-container', 'invisible');
 ```
-
 - Auto-resolves for legitimate users
 - May still show CAPTCHA for suspicious activity
 
@@ -152,10 +128,9 @@ try {
 
 ## 📧 Email Link (Passwordless) Authentication
 
-### Email Link Flow
+### Basic Flow
 
-#### Sending the Link
-
+**Sending the Link:**
 ```typescript
 import { sendEmailSignInLink } from './services/firebaseClient';
 
@@ -171,8 +146,7 @@ await sendEmailSignInLink('user@example.com', actionCodeSettings);
 // Email is automatically saved to localStorage
 ```
 
-#### Completing Sign-In (On Link Click)
-
+**Completing Sign-In (on link click):**
 ```typescript
 import { isEmailSignInLink, completeEmailSignIn } from './services/firebaseClient';
 
@@ -193,7 +167,7 @@ if (isEmailSignInLink()) {
 }
 ```
 
-### Email Example Component
+### Using the Example Component
 
 ```tsx
 import { EmailLinkAuthExample } from './components/auth/EmailLinkAuthExample';
@@ -203,32 +177,16 @@ function App() {
 }
 ```
 
-For custom layouts, use the underlying `EmailLinkAuthPanel` component and supply a redirect URL if needed:
-
-```tsx
-import { EmailLinkAuthPanel } from './components/auth/EmailLinkAuthExample';
-
-export function EmailPortal() {
-  return (
-    <EmailLinkAuthPanel
-      heading='Passwordless Sign-In'
-      redirectUrl='https://example.com/auth/complete'
-    />
-  );
-}
-```
-
 ### Routing Setup
 
 Your app should handle the `/auth/complete` route (or whichever URL you specify in `actionCodeSettings.url`):
 
 ```tsx
 // Example with React Router
-<Route path='/auth/complete' element={<EmailLinkAuthExample />} />
+<Route path="/auth/complete" element={<EmailLinkAuthExample />} />
 ```
 
 The component will:
-
 1. Detect the sign-in link automatically
 2. Complete authentication
 3. Redirect to your dashboard/home page
@@ -236,12 +194,10 @@ The component will:
 ### Cross-Device Support
 
 Email links work across devices! If a user:
-
 - Requests link on desktop
 - Opens link on mobile
 
 The flow:
-
 1. Link opens on mobile
 2. App detects missing email (not in localStorage)
 3. Prompts user to enter email
@@ -273,36 +229,23 @@ export function MinimalPhoneAuth() {
     <div>
       {!confirmation ? (
         <>
-          <input
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder='+1 234 567 8900'
-          />
-          <div id='recaptcha-container'></div>
-          <button
-            onClick={async () => {
-              const verifier = ensurePhoneRecaptcha('recaptcha-container');
-              const result = await signInWithPhone(phone, verifier);
-              setConfirmation(result);
-            }}
-          >
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 234 567 8900" />
+          <div id="recaptcha-container"></div>
+          <button onClick={async () => {
+            const verifier = ensurePhoneRecaptcha('recaptcha-container');
+            const result = await signInWithPhone(phone, verifier);
+            setConfirmation(result);
+          }}>
             Send Code
           </button>
         </>
       ) : (
         <>
-          <input
-            value={code}
-            onChange={e => setCode(e.target.value)}
-            placeholder='123456'
-            maxLength={6}
-          />
-          <button
-            onClick={async () => {
-              await confirmPhoneCode(confirmation, code);
-              alert('Signed in!');
-            }}
-          >
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" maxLength={6} />
+          <button onClick={async () => {
+            await confirmPhoneCode(confirmation, code);
+            alert('Signed in!');
+          }}>
             Verify
           </button>
         </>
@@ -331,7 +274,7 @@ export function MinimalEmailLinkAuth() {
 
   return (
     <div>
-      <input value={email} onChange={e => setEmail(e.target.value)} placeholder='you@example.com' />
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
       <button onClick={handleSend}>Send Magic Link</button>
     </div>
   );
@@ -343,7 +286,6 @@ export function MinimalEmailLinkAuth() {
 ## 🚀 Production Checklist
 
 ### Phone Auth
-
 - [ ] Enable Phone provider in Firebase Console
 - [ ] Configure authorized domains (production + staging)
 - [ ] Remove test phone numbers before production deploy
@@ -353,7 +295,6 @@ export function MinimalEmailLinkAuth() {
 - [ ] Handle quota-exceeded errors gracefully
 
 ### Email Link Auth
-
 - [ ] Enable Email/Password + Email Link in Firebase Console
 - [ ] Add production domain to authorized domains
 - [ ] Configure custom email templates (optional, in Firebase Console → Templates)
@@ -363,7 +304,6 @@ export function MinimalEmailLinkAuth() {
 - [ ] Handle expired link errors
 
 ### General
-
 - [ ] Monitor Firebase Authentication usage/quotas
 - [ ] Set up error tracking (Sentry, etc.)
 - [ ] Implement proper loading states
@@ -385,40 +325,34 @@ export function MinimalEmailLinkAuth() {
 
 ### Phone Auth Issues
 
-#### reCAPTCHA Not Rendering
-
+**reCAPTCHA not rendering**
 - Verify `<div id="recaptcha-container"></div>` exists in DOM
 - Check browser console for errors
 - Ensure Firebase config is loaded
 
-#### SMS Not Sent
-
+**SMS not sent**
 - Check Firebase Console → Authentication → Usage (quota)
 - Verify phone number format (+country code)
 - Check Firebase Console → Authentication → Settings → SMS for blocked regions
 
-#### auth/quota-exceeded
-
+**"auth/quota-exceeded"**
 - Too many SMS sent to same number
 - Upgrade billing plan or wait 24 hours
 - Use test phone numbers for development
 
 ### Email Link Issues
 
-#### Link Not Working
-
+**Link not working**
 - Check if domain is in authorized domains list
 - Verify `handleCodeInApp: true` in ActionCodeSettings
 - Ensure URL has proper protocol (https://)
 
-#### Email Address Required
-
+**"Email address is required"**
 - Link opened on different device (localStorage not available)
 - Prompt user to re-enter email
 - Pass email to `completeEmailSignIn(email)`
 
-#### Link Expired
-
+**Link expired**
 - Links expire after period set by Firebase (default: 24 hours)
 - User must request new link
 
