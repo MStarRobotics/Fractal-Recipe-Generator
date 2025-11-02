@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes, randomInt, createHmac, timingSafeEqual } from 'node:crypto';
 import { verifyMessage } from 'viem';
 import argon2 from 'argon2';
 import { z } from 'zod';
@@ -24,6 +24,7 @@ const OTP_MAX_ATTEMPTS = Number(process.env.PWD_RESET_MAX_ATTEMPTS ?? 5);
 const USERS_COLLECTION = 'userCredentials';
 const OTP_COLLECTION = 'passwordResetOtps';
 const IS_DEVELOPMENT = process.env.NODE_ENV !== 'production';
+const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET ?? null;
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -44,6 +45,45 @@ app.set('trust proxy', 1);
 app.use(cors(corsOptions));
 app.use(helmet());
 app.disable('x-powered-by');
+
+// GitHub Webhook endpoint (raw body + optional signature verification)
+// Payload URL when deployed: https://<your-host>/github-webhook
+app.use('/github-webhook', express.raw({ type: '*/*', limit: '200kb' }));
+const verifyGithubSignature = (secret, payloadBuffer, signatureHeader) => {
+  if (!secret || !signatureHeader) return true; // allow when not configured
+  const expected = 'sha256=' + createHmac('sha256', secret).update(payloadBuffer).digest('hex');
+  try {
+    return timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+};
+
+app.post('/github-webhook', (req, res) => {
+  const event = req.header('X-GitHub-Event') ?? 'unknown';
+  const delivery = req.header('X-GitHub-Delivery') ?? 'n/a';
+  const signature = req.header('X-Hub-Signature-256');
+
+  const isValid = verifyGithubSignature(GITHUB_WEBHOOK_SECRET, req.body, signature);
+  if (!isValid) {
+    res.status(401).json({ error: 'Invalid signature' });
+    return;
+  }
+
+  try {
+    // Best-effort parse; keep raw for signature
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : JSON.parse(req.body.toString('utf8'));
+    console.log(`[GitHub Webhook] ${event} (${delivery})`, {
+      repository: payload?.repository?.full_name,
+      action: payload?.action,
+    });
+  } catch (e) {
+    console.warn('Received webhook but failed to parse JSON payload');
+  }
+  res.status(200).json({ ok: true });
+});
+
+// JSON body parser for the rest of the API
 app.use(express.json({ limit: '50kb' }));
 
 const createRateLimiter = (config) =>

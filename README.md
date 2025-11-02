@@ -97,38 +97,38 @@ These can be wired into UI buttons as needed. For SMS delivery of OTP in server 
 
 1. Install toolchain and dependencies
 
-        ```bash
-        npm ci
-        ```
+```bash
+npm ci
+```
 
-2. Populate `.env` (copy from `.env.example`). For Firebase Admin, escape newlines in `FIREBASE_PRIVATE_KEY` using `\n`.
+1. Populate `.env` (copy from `.env.example`). For Firebase Admin, escape newlines in `FIREBASE_PRIVATE_KEY` using `\n`.
 
-3. Run local quality gates
+1. Run local quality gates
 
-        ```bash
-        npm run lint
-        npm run typecheck
-        npm run build
-        ```
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-4. Start backend and frontend (separate terminals)
+1. Start backend and frontend (separate terminals)
 
-        ```bash
-        npm run server    # http://localhost:4000
-        npm run dev       # http://localhost:5173
-        ```
+```bash
+npm run server    # http://localhost:4000
+npm run dev       # http://localhost:5173
+```
 
-5. Test APIs quickly (optional)
+1. Test APIs quickly (optional)
 
-        ```bash
-        curl http://localhost:4000/health
-        ```
+```bash
+curl http://localhost:4000/health
+```
 
-6. Execute the E2E auth smoke test (server must be running)
+1. Execute the E2E auth smoke test (server must be running)
 
-        ```bash
-        npm run test:e2e-auth
-        ```
+```bash
+npm run test:e2e-auth
+```
 
 Postman:
 
@@ -141,6 +141,16 @@ Secrets hygiene:
 - `.env` and service-account JSON must not be committed (already git-ignored).
 - Use GitHub Actions Secrets for CI.
 - Rotate leaked keys immediately.
+
+### GitHub Webhook URL
+
+The server exposes `POST /github-webhook` for repository webhooks. When your backend is hosted (Render, Railway, Cloud Run, etc.), set the GitHub webhook Payload URL to:
+
+```text
+https://<your-backend-host>/github-webhook
+```
+
+Optionally set a secret and provide it as `GITHUB_WEBHOOK_SECRET` in your environment. The endpoint verifies `X-Hub-Signature-256` when a secret is configured.
 
 ## Stack
 
