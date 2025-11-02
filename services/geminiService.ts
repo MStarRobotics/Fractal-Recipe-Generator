@@ -1,19 +1,22 @@
 // Gemini service utilities for generating recipes, images, videos, and analyses.
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type } from '@google/genai';
 import { RecipeFormData, SavedRecipe, Recipe } from '../types';
 import { THEME_PROMPTS } from '../constants';
 
 // Try Vite-style env first; falls back to Node env if available
 const viteGeminiKey: string | undefined = import.meta.env?.VITE_GEMINI_API_KEY;
 type NodeEnv = { VITE_GEMINI_API_KEY?: string; GEMINI_API_KEY?: string };
-const nodeEnv: NodeEnv | undefined = (globalThis as unknown as { process?: { env?: NodeEnv } })?.process?.env;
+const nodeEnv: NodeEnv | undefined = (globalThis as unknown as { process?: { env?: NodeEnv } })
+  ?.process?.env;
 const nodeGeminiKey: string | undefined = nodeEnv?.VITE_GEMINI_API_KEY ?? nodeEnv?.GEMINI_API_KEY;
 
 const GEMINI_API_KEY = viteGeminiKey ?? nodeGeminiKey;
 
 const assertGeminiKey = () => {
   if (!GEMINI_API_KEY) {
-    throw new Error('Gemini API key missing. Set VITE_GEMINI_API_KEY in your environment before using AI features.');
+    throw new Error(
+      'Gemini API key missing. Set VITE_GEMINI_API_KEY in your environment before using AI features.'
+    );
   }
 };
 
@@ -25,12 +28,33 @@ const getAi = () => {
 const recipeSchema = {
   type: Type.OBJECT,
   properties: {
-    dishName: { type: Type.STRING, description: 'A creative, evocative name for the dish. Can include fractal or geometric themes.' },
-    description: { type: Type.STRING, description: 'A short, enticing description of the dish, hinting at its flavor profile and texture.' },
-    timeNeeded: { type: Type.STRING, description: 'Estimated total cooking time (e.g., "45 minutes").' },
-    estimatedCost: { type: Type.STRING, description: 'A calculated cost estimate in Indian Rupees (INR), based on average market prices for the ingredients. E.g., "₹250 - ₹350".' },
-    difficulty: { type: Type.STRING, description: 'The recipe difficulty, rated as "Easy", "Medium", or "Hard".' },
-    servings: { type: Type.STRING, description: 'How many people this recipe serves (e.g., "Serves 4").' },
+    dishName: {
+      type: Type.STRING,
+      description:
+        'A creative, evocative name for the dish. Can include fractal or geometric themes.',
+    },
+    description: {
+      type: Type.STRING,
+      description:
+        'A short, enticing description of the dish, hinting at its flavor profile and texture.',
+    },
+    timeNeeded: {
+      type: Type.STRING,
+      description: 'Estimated total cooking time (e.g., "45 minutes").',
+    },
+    estimatedCost: {
+      type: Type.STRING,
+      description:
+        'A calculated cost estimate in Indian Rupees (INR), based on average market prices for the ingredients. E.g., "₹250 - ₹350".',
+    },
+    difficulty: {
+      type: Type.STRING,
+      description: 'The recipe difficulty, rated as "Easy", "Medium", or "Hard".',
+    },
+    servings: {
+      type: Type.STRING,
+      description: 'How many people this recipe serves (e.g., "Serves 4").',
+    },
     ingredients: {
       type: Type.ARRAY,
       description: 'List of all necessary ingredients.',
@@ -50,10 +74,21 @@ const recipeSchema = {
     },
     analysis: {
       type: Type.STRING,
-      description: 'A brief, creative analysis from the perspective of a retro AI chef. Include a flavor profile analysis, a fun fact, or a serving suggestion.'
-    }
+      description:
+        'A brief, creative analysis from the perspective of a retro AI chef. Include a flavor profile analysis, a fun fact, or a serving suggestion.',
+    },
   },
-  required: ['dishName', 'description', 'timeNeeded', 'estimatedCost', 'difficulty', 'servings', 'ingredients', 'instructions', 'analysis'],
+  required: [
+    'dishName',
+    'description',
+    'timeNeeded',
+    'estimatedCost',
+    'difficulty',
+    'servings',
+    'ingredients',
+    'instructions',
+    'analysis',
+  ],
 };
 
 export const generateRecipe = async (formData: RecipeFormData): Promise<Recipe> => {
@@ -67,7 +102,7 @@ export const generateRecipe = async (formData: RecipeFormData): Promise<Recipe> 
 - The description must be enticing.
 - All parts of the recipe must be in the user-specified language.
 - Strictly adhere to the provided JSON schema. Do not include any markdown formatting or extra text outside the JSON structure.`;
-  
+
   const userPrompt = `
     Greetings, CHEF-TRON 3000. Design a new fractal-inspired recipe.
     
@@ -81,7 +116,7 @@ export const generateRecipe = async (formData: RecipeFormData): Promise<Recipe> 
     // EXECUTE
     Generate a complete recipe based on these parameters.
   `;
-  
+
   const recipeResponse = await ai.models.generateContent({
     model: 'gemini-2.5-pro',
     contents: userPrompt,
@@ -101,7 +136,7 @@ export const generateRecipe = async (formData: RecipeFormData): Promise<Recipe> 
   try {
     recipe = JSON.parse(recipeJsonText) as Recipe;
   } catch {
-    console.error("Failed to parse recipe JSON:", recipeJsonText);
+    console.error('Failed to parse recipe JSON:', recipeJsonText);
     throw new Error('Failed to parse the recipe from the model. The format was invalid.');
   }
   return recipe;
@@ -109,7 +144,10 @@ export const generateRecipe = async (formData: RecipeFormData): Promise<Recipe> 
 
 export const generateImageForRecipe = async (recipe: Recipe): Promise<string> => {
   const ai = getAi();
-  const ingredientKeywords = recipe.ingredients.map(i => i.name).slice(0, 5).join(', ');
+  const ingredientKeywords = recipe.ingredients
+    .map(i => i.name)
+    .slice(0, 5)
+    .join(', ');
   const imagePrompt = `
     Epic, ultra-realistic food photography of a gourmet dish named "${recipe.dishName}".
     Style: Cinematic, dramatic studio lighting, sharp focus, high definition, vibrant colors. The background is a dark, moody slate surface with subtle, elegant, glowing geometric fractal patterns softly blurred into the background.
@@ -118,7 +156,8 @@ export const generateImageForRecipe = async (recipe: Recipe): Promise<string> =>
     Key elements from the dish to feature: ${ingredientKeywords}.
     Description for context: ${recipe.description}
   `;
-  const negativePrompt = 'blurry, cartoon, text, watermark, ugly, deformed, noisy, malformed, inedible-looking, messy, cluttered background, poor lighting, plastic look, oversaturated, human hands, people';
+  const negativePrompt =
+    'blurry, cartoon, text, watermark, ugly, deformed, noisy, malformed, inedible-looking, messy, cluttered background, poor lighting, plastic look, oversaturated, human hands, people';
 
   const imageResponse = await ai.models.generateImages({
     model: 'imagen-4.0-generate-001',
@@ -141,10 +180,10 @@ export const generateImageForRecipe = async (recipe: Recipe): Promise<string> =>
 };
 
 export const generateRecipeVideo = async (
-    recipe: Recipe,
-    narration: string | null,
-    imageBase64: string | null,
-    theme: string
+  recipe: Recipe,
+  narration: string | null,
+  imageBase64: string | null,
+  theme: string
 ): Promise<string> => {
   const ai = getAi();
   try {
@@ -186,10 +225,12 @@ export const generateRecipeVideo = async (
         },
       });
 
-    const pollToCompletion = async (operation: Awaited<ReturnType<typeof startGeneration>>): Promise<typeof operation> => {
+    const pollToCompletion = async (
+      operation: Awaited<ReturnType<typeof startGeneration>>
+    ): Promise<typeof operation> => {
       let current = operation;
       while (!current.done) {
-        await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10s
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s
         current = await ai.operations.getVideosOperation({ operation: current });
       }
       return current;
@@ -267,7 +308,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
         }
         resolve(btoa(binary));
       } else {
-        reject(new Error("Failed to convert blob to base64"));
+        reject(new Error('Failed to convert blob to base64'));
       }
     };
     reader.onerror = reject;
@@ -282,27 +323,32 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     const audioPart = {
       inlineData: { mimeType: audioBlob.type, data: audioBase64 },
     };
-    const textPart = { text: "Transcribe this audio. It is a voiceover for a cooking video, describing the recipe steps. Please ensure culinary terms are spelled correctly." };
+    const textPart = {
+      text: 'Transcribe this audio. It is a voiceover for a cooking video, describing the recipe steps. Please ensure culinary terms are spelled correctly.',
+    };
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: { parts: [textPart, audioPart] },
     });
 
-  const transcription = response.text ?? '';
-  return transcription.trim();
+    const transcription = response.text ?? '';
+    return transcription.trim();
   } catch (error) {
-    console.error("Error transcribing audio:", error);
-    return ""; // Return empty string on failure to not block video generation
+    console.error('Error transcribing audio:', error);
+    return ''; // Return empty string on failure to not block video generation
   }
 };
 
 export const analyzeCookbook = async (recipes: SavedRecipe[]): Promise<string> => {
   const ai = getAi();
-  
-  const recipeSummaries = recipes.map(r => 
-    `Dish: ${r.recipe.dishName}\nDescription: ${r.recipe.description}\nIngredients: ${r.recipe.ingredients.map(i => i.name).join(', ')}`
-  ).join('\n---\n');
+
+  const recipeSummaries = recipes
+    .map(
+      r =>
+        `Dish: ${r.recipe.dishName}\nDescription: ${r.recipe.description}\nIngredients: ${r.recipe.ingredients.map(i => i.name).join(', ')}`
+    )
+    .join('\n---\n');
 
   const systemInstruction = `You are CHEF-TRON 3000, a powerful but quirky AI chef from a forgotten 8-bit culinary dimension. Your personality is enthusiastic, slightly eccentric, and you see cooking as an epic video game quest.
 Your voice uses bombastic 8-bit video game proclamations (e.g., "LEVEL UP YOUR KITCHEN SKILLS!"), food puns, and retro computer jargon (e.g., "flavor matrix," "compiling deliciousness," "buffs," "defragmenting").
@@ -315,7 +361,7 @@ Your report MUST be structured with the following headers, exactly as shown, eac
 Keep the text under each header concise (2-3 sentences max). The entire response must be a single block of text without markdown formatting.`;
 
   const userPrompt = `ANALYZE COOKBOOK DATASTREAM V2.0:\n\n${recipeSummaries}\n\nPROVIDE FULL ANALYSIS.`;
-  
+
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-pro',
     contents: userPrompt,

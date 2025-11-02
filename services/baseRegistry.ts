@@ -1,7 +1,18 @@
 // Blockchain helpers for wallet connectivity, membership management, and cookbook syncing.
-import { createWalletClient, createPublicClient, custom, http, parseAbiItem, type Address, type Hex } from 'viem';
+import {
+  createWalletClient,
+  createPublicClient,
+  custom,
+  http,
+  parseAbiItem,
+  type Address,
+  type Hex,
+} from 'viem';
 import { baseSepolia, base } from 'viem/chains';
-import { FRACTAL_RECIPE_REGISTRY_ABI, type FractalRecipeRegistryAbi } from '../contracts/fractalRecipeRegistryAbi';
+import {
+  FRACTAL_RECIPE_REGISTRY_ABI,
+  type FractalRecipeRegistryAbi,
+} from '../contracts/fractalRecipeRegistryAbi';
 import type { SavedRecipe } from '../types';
 import { buildFallbackRecipe, decodeRecipeMetadata, encodeRecipeMetadata } from '../utils/metadata';
 import { getName } from '@coinbase/onchainkit/identity';
@@ -24,7 +35,9 @@ const publicClient = createPublicClient({
 
 const registryAbi: FractalRecipeRegistryAbi = FRACTAL_RECIPE_REGISTRY_ABI;
 
-const recipeSynthesizedEvent = parseAbiItem('event RecipeSynthesized(uint256 indexed recipeId, address indexed creator, string dishName, string metadataURI, uint256 timestamp)');
+const recipeSynthesizedEvent = parseAbiItem(
+  'event RecipeSynthesized(uint256 indexed recipeId, address indexed creator, string dishName, string metadataURI, uint256 timestamp)'
+);
 
 type EIP1193Provider = {
   request: (payload: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -37,9 +50,10 @@ const isEip1193Provider = (val: unknown): val is EIP1193Provider => {
 };
 
 const getInjectedProvider = (): EIP1193Provider => {
-  const globalWindow = typeof globalThis === 'object'
-    ? (globalThis as unknown as Window & { ethereum?: unknown })
-    : undefined;
+  const globalWindow =
+    typeof globalThis === 'object'
+      ? (globalThis as unknown as Window & { ethereum?: unknown })
+      : undefined;
 
   if (!isEip1193Provider(globalWindow?.ethereum)) {
     throw new Error('MetaMask not detected. Install MetaMask to continue.');
@@ -91,10 +105,12 @@ export const connectWallet = async (): Promise<Address> => {
 
 export const recordRecipeOnchain = async (
   account: Address,
-  savedRecipe: SavedRecipe,
+  savedRecipe: SavedRecipe
 ): Promise<Hex> => {
   if (!contractAddress) {
-    throw new Error('Contract address missing. Set VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS before recording recipes.');
+    throw new Error(
+      'Contract address missing. Set VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS before recording recipes.'
+    );
   }
 
   const provider = getInjectedProvider();
@@ -156,9 +172,14 @@ export const checkLifetimeMembership = async (account: Address): Promise<boolean
   }
 };
 
-export const purchaseLifetimeMembership = async (account: Address, priceOverride?: bigint): Promise<Hex> => {
+export const purchaseLifetimeMembership = async (
+  account: Address,
+  priceOverride?: bigint
+): Promise<Hex> => {
   if (!contractAddress) {
-    throw new Error('Contract address missing. Set VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS before purchasing membership.');
+    throw new Error(
+      'Contract address missing. Set VITE_FRACTAL_RECIPE_CONTRACT_ADDRESS before purchasing membership.'
+    );
   }
 
   const provider = getInjectedProvider();

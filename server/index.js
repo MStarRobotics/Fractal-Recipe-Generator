@@ -15,7 +15,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 const JWT_SECRET = process.env.JWT_SECRET ?? 'change-this-secret-before-production';
 const TOKEN_TTL_SECONDS = Number(process.env.JWT_TTL_SECONDS ?? 3600);
 const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID ?? null;
 const PASSWORD_MIN_LENGTH = Number(process.env.PASSWORD_MIN_LENGTH ?? 10);
@@ -46,7 +46,7 @@ app.use(cors(corsOptions));
 app.use(helmet());
 app.disable('x-powered-by');
 
-const createRateLimiter = (config) =>
+const createRateLimiter = config =>
   rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
@@ -92,7 +92,8 @@ app.post('/github-webhook', webhookRateLimit, (req, res) => {
 
   try {
     // Best-effort parse; keep raw for signature
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : JSON.parse(req.body.toString('utf8'));
+    const payload =
+      typeof req.body === 'string' ? JSON.parse(req.body) : JSON.parse(req.body.toString('utf8'));
     const repoName = payload?.repository?.full_name || 'unknown';
     const action = payload?.action || 'n/a';
     // Log structured data to avoid format string vulnerability
@@ -103,7 +104,10 @@ app.post('/github-webhook', webhookRateLimit, (req, res) => {
       action,
     });
   } catch (e) {
-    console.warn('Received webhook but failed to parse JSON payload:', e instanceof Error ? e.message : String(e));
+    console.warn(
+      'Received webhook but failed to parse JSON payload:',
+      e instanceof Error ? e.message : String(e)
+    );
   }
   res.status(200).json({ ok: true });
 });
@@ -137,7 +141,9 @@ try {
     firestoreFieldValue = admin.firestore.FieldValue;
     console.log('Firebase Admin ready for custom token issuance');
   } else {
-    console.warn('Firebase Admin credentials missing; skipping Firebase Authentication integration.');
+    console.warn(
+      'Firebase Admin credentials missing; skipping Firebase Authentication integration.'
+    );
   }
 } catch (error) {
   firebaseAuth = null;
@@ -148,7 +154,9 @@ try {
 
 const registerSchema = z.object({
   email: z.string({ required_error: 'Email is required.' }).email('Invalid email address.'),
-  password: z.string({ required_error: 'Password is required.' }).min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`),
+  password: z
+    .string({ required_error: 'Password is required.' })
+    .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`),
   phone: z
     .string({ required_error: 'Phone number is required.' })
     .min(6, 'Phone number is too short.')
@@ -178,17 +186,17 @@ const otpResetSchema = z.object({
     .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`),
 });
 
-const normalizeEmail = (email) => email.trim().toLowerCase();
-const normalizePhone = (phone) => phone.replaceAll(/\D/g, '');
+const normalizeEmail = email => email.trim().toLowerCase();
+const normalizePhone = phone => phone.replaceAll(/\D/g, '');
 
-const normalizeAddress = (address) => {
+const normalizeAddress = address => {
   if (typeof address !== 'string' || !address.startsWith('0x')) {
     throw new Error('Invalid wallet address');
   }
   return address.toLowerCase();
 };
 
-const createNonceRecord = (address) => {
+const createNonceRecord = address => {
   const nonce = randomBytes(16).toString('hex');
   const message = `Sign in to Fractal Recipe\nNonce: ${nonce}`;
   const expiresAt = Date.now() + 5 * 60 * 1000;
@@ -203,10 +211,11 @@ const respondValidationError = (res, validationError) => {
   });
 };
 
-const ensureCredentialStoreAvailable = (res) => {
+const ensureCredentialStoreAvailable = res => {
   if (!firestore || !firestoreFieldValue) {
     res.status(503).json({
-      error: 'User credential storage is not configured. Provide Firebase Admin credentials on the server to enable this feature.',
+      error:
+        'User credential storage is not configured. Provide Firebase Admin credentials on the server to enable this feature.',
     });
     return false;
   }
@@ -215,7 +224,7 @@ const ensureCredentialStoreAvailable = (res) => {
 
 const generateOtpCode = () => String(randomInt(0, 1_000_000)).padStart(6, '0');
 
-const buildWalletRecord = (address) => {
+const buildWalletRecord = address => {
   const existing = walletDirectory.get(address);
   if (existing) {
     return existing;
@@ -225,7 +234,7 @@ const buildWalletRecord = (address) => {
   return record;
 };
 
-const issueJwt = (payload) => {
+const issueJwt = payload => {
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_TTL_SECONDS });
   activeTokens.set(token, {
     payload,
@@ -234,12 +243,14 @@ const issueJwt = (payload) => {
   return token;
 };
 
-const verifyGoogleAccessToken = async (accessToken) => {
+const verifyGoogleAccessToken = async accessToken => {
   if (!accessToken) {
     throw new Error('Missing Google access token');
   }
 
-  const tokenInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
+  const tokenInfoResponse = await fetch(
+    `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`
+  );
   if (!tokenInfoResponse.ok) {
     throw new Error('Invalid Google access token');
   }
@@ -296,264 +307,280 @@ const authenticateRequest = (req, res, next) => {
   }
 };
 
-app.post('/auth/register/email', createRateLimiter({ windowMs: 60_000, limit: 20 }), async (req, res) => {
-  if (!ensureCredentialStoreAvailable(res)) {
-    return;
-  }
-
-  const parseResult = registerSchema.safeParse(req.body ?? {});
-  if (!parseResult.success) {
-    respondValidationError(res, parseResult.error);
-    return;
-  }
-
-  const normalizedEmail = normalizeEmail(parseResult.data.email);
-  const normalizedPhone = normalizePhone(parseResult.data.phone);
-
-  if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
-    res.status(400).json({ error: 'Phone number must contain between 8 and 15 digits.' });
-    return;
-  }
-
-  try {
-    const userDocRef = firestore.collection(USERS_COLLECTION).doc(normalizedEmail);
-    const existingUser = await userDocRef.get();
-    if (existingUser.exists) {
-      res.status(409).json({ error: 'Email is already registered.' });
+app.post(
+  '/auth/register/email',
+  createRateLimiter({ windowMs: 60_000, limit: 20 }),
+  async (req, res) => {
+    if (!ensureCredentialStoreAvailable(res)) {
       return;
     }
 
-    const phoneCollision = await firestore
-      .collection(USERS_COLLECTION)
-      .where('phone', '==', normalizedPhone)
-      .limit(1)
-      .get();
-    if (!phoneCollision.empty) {
-      res.status(409).json({ error: 'Phone number is already associated with another account.' });
+    const parseResult = registerSchema.safeParse(req.body ?? {});
+    if (!parseResult.success) {
+      respondValidationError(res, parseResult.error);
       return;
     }
 
-    const passwordHash = await argon2.hash(parseResult.data.password, { type: argon2.argon2id });
-    await userDocRef.set({
-      email: normalizedEmail,
-      passwordHash,
-      phone: normalizedPhone,
-      createdAt: firestoreFieldValue.serverTimestamp(),
-      updatedAt: firestoreFieldValue.serverTimestamp(),
-      lastLoginAt: null,
-    });
+    const normalizedEmail = normalizeEmail(parseResult.data.email);
+    const normalizedPhone = normalizePhone(parseResult.data.phone);
 
-    res.status(201).json({
-      message: 'ACCOUNT_CREATED',
-      email: normalizedEmail,
-      phone: normalizedPhone,
-    });
-  } catch (error) {
-    console.error('Email registration failed', error);
-    res.status(500).json({ error: 'Failed to register account.' });
-  }
-});
-
-app.post('/auth/login/email', createRateLimiter({ windowMs: 60_000, limit: 30 }), async (req, res) => {
-  if (!ensureCredentialStoreAvailable(res)) {
-    return;
-  }
-
-  const parseResult = loginSchema.safeParse(req.body ?? {});
-  if (!parseResult.success) {
-    respondValidationError(res, parseResult.error);
-    return;
-  }
-
-  const normalizedEmail = normalizeEmail(parseResult.data.email);
-
-  try {
-    const userDocRef = firestore.collection(USERS_COLLECTION).doc(normalizedEmail);
-    const userDoc = await userDocRef.get();
-    if (!userDoc.exists) {
-      res.status(401).json({ error: 'Invalid email or password.' });
-      return;
-    }
-    const userData = userDoc.data();
-    if (!userData?.passwordHash) {
-      res.status(500).json({ error: 'Account is missing credentials. Contact support.' });
+    if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
+      res.status(400).json({ error: 'Phone number must contain between 8 and 15 digits.' });
       return;
     }
 
-    const passwordMatches = await argon2.verify(userData.passwordHash, parseResult.data.password);
-    if (!passwordMatches) {
-      res.status(401).json({ error: 'Invalid email or password.' });
+    try {
+      const userDocRef = firestore.collection(USERS_COLLECTION).doc(normalizedEmail);
+      const existingUser = await userDocRef.get();
+      if (existingUser.exists) {
+        res.status(409).json({ error: 'Email is already registered.' });
+        return;
+      }
+
+      const phoneCollision = await firestore
+        .collection(USERS_COLLECTION)
+        .where('phone', '==', normalizedPhone)
+        .limit(1)
+        .get();
+      if (!phoneCollision.empty) {
+        res.status(409).json({ error: 'Phone number is already associated with another account.' });
+        return;
+      }
+
+      const passwordHash = await argon2.hash(parseResult.data.password, { type: argon2.argon2id });
+      await userDocRef.set({
+        email: normalizedEmail,
+        passwordHash,
+        phone: normalizedPhone,
+        createdAt: firestoreFieldValue.serverTimestamp(),
+        updatedAt: firestoreFieldValue.serverTimestamp(),
+        lastLoginAt: null,
+      });
+
+      res.status(201).json({
+        message: 'ACCOUNT_CREATED',
+        email: normalizedEmail,
+        phone: normalizedPhone,
+      });
+    } catch (error) {
+      console.error('Email registration failed', error);
+      res.status(500).json({ error: 'Failed to register account.' });
+    }
+  }
+);
+
+app.post(
+  '/auth/login/email',
+  createRateLimiter({ windowMs: 60_000, limit: 30 }),
+  async (req, res) => {
+    if (!ensureCredentialStoreAvailable(res)) {
       return;
     }
 
-    await userDocRef.update({
-      lastLoginAt: firestoreFieldValue.serverTimestamp(),
-      updatedAt: firestoreFieldValue.serverTimestamp(),
-    });
-
-    const token = issueJwt({
-      authType: 'email-password',
-      email: normalizedEmail,
-      phone: userData.phone ?? null,
-    });
-
-    res.json({
-      token,
-      email: normalizedEmail,
-      phone: userData.phone ?? null,
-    });
-  } catch (error) {
-    console.error('Email login failed', error);
-    res.status(500).json({ error: 'Failed to authenticate.' });
-  }
-});
-
-app.post('/auth/password/request-otp', createRateLimiter({ windowMs: 60_000, limit: 5 }), async (req, res) => {
-  if (!ensureCredentialStoreAvailable(res)) {
-    return;
-  }
-
-  const parseResult = otpRequestSchema.safeParse(req.body ?? {});
-  if (!parseResult.success) {
-    respondValidationError(res, parseResult.error);
-    return;
-  }
-
-  const normalizedPhone = normalizePhone(parseResult.data.phone);
-  if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
-    res.status(400).json({ error: 'Phone number must contain between 8 and 15 digits.' });
-    return;
-  }
-
-  try {
-    const userSnapshot = await firestore
-      .collection(USERS_COLLECTION)
-      .where('phone', '==', normalizedPhone)
-      .limit(1)
-      .get();
-
-    if (userSnapshot.empty) {
-      res.status(404).json({ error: 'No account found for the provided phone number.' });
+    const parseResult = loginSchema.safeParse(req.body ?? {});
+    if (!parseResult.success) {
+      respondValidationError(res, parseResult.error);
       return;
     }
 
-    const [userDoc] = userSnapshot.docs;
-    const otpCode = generateOtpCode();
-    const otpHash = await argon2.hash(otpCode, { type: argon2.argon2id });
-    const expiresAt = Date.now() + OTP_TTL_MS;
+    const normalizedEmail = normalizeEmail(parseResult.data.email);
 
-    await firestore.collection(OTP_COLLECTION).doc(normalizedPhone).set({
-      phone: normalizedPhone,
-      email: userDoc.id,
-      otpHash,
-      attempts: 0,
-      expiresAt,
-      createdAt: firestoreFieldValue.serverTimestamp(),
-    });
+    try {
+      const userDocRef = firestore.collection(USERS_COLLECTION).doc(normalizedEmail);
+      const userDoc = await userDocRef.get();
+      if (!userDoc.exists) {
+        res.status(401).json({ error: 'Invalid email or password.' });
+        return;
+      }
+      const userData = userDoc.data();
+      if (!userData?.passwordHash) {
+        res.status(500).json({ error: 'Account is missing credentials. Contact support.' });
+        return;
+      }
 
-    if (IS_DEVELOPMENT) {
-      console.info(`Password reset OTP for ${normalizedPhone}: ${otpCode}`);
+      const passwordMatches = await argon2.verify(userData.passwordHash, parseResult.data.password);
+      if (!passwordMatches) {
+        res.status(401).json({ error: 'Invalid email or password.' });
+        return;
+      }
+
+      await userDocRef.update({
+        lastLoginAt: firestoreFieldValue.serverTimestamp(),
+        updatedAt: firestoreFieldValue.serverTimestamp(),
+      });
+
+      const token = issueJwt({
+        authType: 'email-password',
+        email: normalizedEmail,
+        phone: userData.phone ?? null,
+      });
+
+      res.json({
+        token,
+        email: normalizedEmail,
+        phone: userData.phone ?? null,
+      });
+    } catch (error) {
+      console.error('Email login failed', error);
+      res.status(500).json({ error: 'Failed to authenticate.' });
     }
-
-    res.json({
-      message: 'OTP dispatched. Integrate an SMS provider to deliver the code to the user.',
-      ...(IS_DEVELOPMENT
-        ? { demoOtp: otpCode, expiresInSeconds: Math.floor(OTP_TTL_MS / 1000) }
-        : {}),
-    });
-  } catch (error) {
-    console.error('OTP request failed', error);
-    res.status(500).json({ error: 'Failed to generate OTP code.' });
   }
-});
+);
 
-app.post('/auth/password/reset', createRateLimiter({ windowMs: 60_000, limit: 5 }), async (req, res) => {
-  if (!ensureCredentialStoreAvailable(res)) {
-    return;
-  }
-
-  const parseResult = otpResetSchema.safeParse(req.body ?? {});
-  if (!parseResult.success) {
-    respondValidationError(res, parseResult.error);
-    return;
-  }
-
-  const normalizedPhone = normalizePhone(parseResult.data.phone);
-  if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
-    res.status(400).json({ error: 'Phone number must contain between 8 and 15 digits.' });
-    return;
-  }
-
-  const { otp, newPassword } = parseResult.data;
-  const otpDocRef = firestore.collection(OTP_COLLECTION).doc(normalizedPhone);
-
-  try {
-    const otpDoc = await otpDocRef.get();
-    if (!otpDoc.exists) {
-      res.status(400).json({ error: 'OTP is invalid or has expired.' });
+app.post(
+  '/auth/password/request-otp',
+  createRateLimiter({ windowMs: 60_000, limit: 5 }),
+  async (req, res) => {
+    if (!ensureCredentialStoreAvailable(res)) {
       return;
     }
 
-    const otpData = otpDoc.data();
-    if (!otpData) {
+    const parseResult = otpRequestSchema.safeParse(req.body ?? {});
+    if (!parseResult.success) {
+      respondValidationError(res, parseResult.error);
+      return;
+    }
+
+    const normalizedPhone = normalizePhone(parseResult.data.phone);
+    if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
+      res.status(400).json({ error: 'Phone number must contain between 8 and 15 digits.' });
+      return;
+    }
+
+    try {
+      const userSnapshot = await firestore
+        .collection(USERS_COLLECTION)
+        .where('phone', '==', normalizedPhone)
+        .limit(1)
+        .get();
+
+      if (userSnapshot.empty) {
+        res.status(404).json({ error: 'No account found for the provided phone number.' });
+        return;
+      }
+
+      const [userDoc] = userSnapshot.docs;
+      const otpCode = generateOtpCode();
+      const otpHash = await argon2.hash(otpCode, { type: argon2.argon2id });
+      const expiresAt = Date.now() + OTP_TTL_MS;
+
+      await firestore.collection(OTP_COLLECTION).doc(normalizedPhone).set({
+        phone: normalizedPhone,
+        email: userDoc.id,
+        otpHash,
+        attempts: 0,
+        expiresAt,
+        createdAt: firestoreFieldValue.serverTimestamp(),
+      });
+
+      if (IS_DEVELOPMENT) {
+        console.info(`Password reset OTP for ${normalizedPhone}: ${otpCode}`);
+      }
+
+      res.json({
+        message: 'OTP dispatched. Integrate an SMS provider to deliver the code to the user.',
+        ...(IS_DEVELOPMENT
+          ? { demoOtp: otpCode, expiresInSeconds: Math.floor(OTP_TTL_MS / 1000) }
+          : {}),
+      });
+    } catch (error) {
+      console.error('OTP request failed', error);
+      res.status(500).json({ error: 'Failed to generate OTP code.' });
+    }
+  }
+);
+
+app.post(
+  '/auth/password/reset',
+  createRateLimiter({ windowMs: 60_000, limit: 5 }),
+  async (req, res) => {
+    if (!ensureCredentialStoreAvailable(res)) {
+      return;
+    }
+
+    const parseResult = otpResetSchema.safeParse(req.body ?? {});
+    if (!parseResult.success) {
+      respondValidationError(res, parseResult.error);
+      return;
+    }
+
+    const normalizedPhone = normalizePhone(parseResult.data.phone);
+    if (normalizedPhone.length < 8 || normalizedPhone.length > 15) {
+      res.status(400).json({ error: 'Phone number must contain between 8 and 15 digits.' });
+      return;
+    }
+
+    const { otp, newPassword } = parseResult.data;
+    const otpDocRef = firestore.collection(OTP_COLLECTION).doc(normalizedPhone);
+
+    try {
+      const otpDoc = await otpDocRef.get();
+      if (!otpDoc.exists) {
+        res.status(400).json({ error: 'OTP is invalid or has expired.' });
+        return;
+      }
+
+      const otpData = otpDoc.data();
+      if (!otpData) {
+        await otpDocRef.delete();
+        res.status(400).json({ error: 'OTP is invalid or has expired.' });
+        return;
+      }
+
+      const attempts = otpData.attempts ?? 0;
+      if (attempts >= OTP_MAX_ATTEMPTS) {
+        await otpDocRef.delete();
+        res.status(429).json({ error: 'Too many invalid attempts. Request a new OTP.' });
+        return;
+      }
+
+      if (typeof otpData.expiresAt === 'number' && otpData.expiresAt < Date.now()) {
+        await otpDocRef.delete();
+        res.status(400).json({ error: 'OTP expired. Request a new code.' });
+        return;
+      }
+
+      const otpValid = await argon2.verify(otpData.otpHash, otp);
+      if (!otpValid) {
+        await otpDocRef.update({ attempts: attempts + 1 });
+        res.status(401).json({ error: 'Invalid OTP code.' });
+        return;
+      }
+
+      const linkedEmail = otpData.email;
+      if (!linkedEmail) {
+        await otpDocRef.delete();
+        res.status(500).json({ error: 'Failed to resolve account for OTP.' });
+        return;
+      }
+
+      const userDocRef = firestore.collection(USERS_COLLECTION).doc(linkedEmail);
+      const userDoc = await userDocRef.get();
+      if (!userDoc.exists) {
+        await otpDocRef.delete();
+        res.status(404).json({ error: 'Account record not found.' });
+        return;
+      }
+
+      const newPasswordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+
+      await userDocRef.update({
+        passwordHash: newPasswordHash,
+        updatedAt: firestoreFieldValue.serverTimestamp(),
+      });
+
       await otpDocRef.delete();
-      res.status(400).json({ error: 'OTP is invalid or has expired.' });
-      return;
+
+      res.json({
+        message: 'Password reset successful.',
+        email: linkedEmail,
+      });
+    } catch (error) {
+      console.error('Password reset failed', error);
+      res.status(500).json({ error: 'Failed to reset password.' });
     }
-
-    const attempts = otpData.attempts ?? 0;
-    if (attempts >= OTP_MAX_ATTEMPTS) {
-      await otpDocRef.delete();
-      res.status(429).json({ error: 'Too many invalid attempts. Request a new OTP.' });
-      return;
-    }
-
-    if (typeof otpData.expiresAt === 'number' && otpData.expiresAt < Date.now()) {
-      await otpDocRef.delete();
-      res.status(400).json({ error: 'OTP expired. Request a new code.' });
-      return;
-    }
-
-    const otpValid = await argon2.verify(otpData.otpHash, otp);
-    if (!otpValid) {
-      await otpDocRef.update({ attempts: attempts + 1 });
-      res.status(401).json({ error: 'Invalid OTP code.' });
-      return;
-    }
-
-    const linkedEmail = otpData.email;
-    if (!linkedEmail) {
-      await otpDocRef.delete();
-      res.status(500).json({ error: 'Failed to resolve account for OTP.' });
-      return;
-    }
-
-    const userDocRef = firestore.collection(USERS_COLLECTION).doc(linkedEmail);
-    const userDoc = await userDocRef.get();
-    if (!userDoc.exists) {
-      await otpDocRef.delete();
-      res.status(404).json({ error: 'Account record not found.' });
-      return;
-    }
-
-    const newPasswordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
-
-    await userDocRef.update({
-      passwordHash: newPasswordHash,
-      updatedAt: firestoreFieldValue.serverTimestamp(),
-    });
-
-    await otpDocRef.delete();
-
-    res.json({
-      message: 'Password reset successful.',
-      email: linkedEmail,
-    });
-  } catch (error) {
-    console.error('Password reset failed', error);
-    res.status(500).json({ error: 'Failed to reset password.' });
   }
-});
+);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
@@ -622,7 +649,12 @@ app.post('/auth/verify', createRateLimiter({ windowMs: 60_000, limit: 20 }), asy
     }
 
     const token = issueJwt({ address: normalized, linkedGoogleId: walletRecord.googleId ?? null });
-    res.json({ token, address: normalized, linkedGoogleId: walletRecord.googleId, firebaseCustomToken });
+    res.json({
+      token,
+      address: normalized,
+      linkedGoogleId: walletRecord.googleId,
+      firebaseCustomToken,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message ?? 'Signature verification failed' });
   }
@@ -630,123 +662,138 @@ app.post('/auth/verify', createRateLimiter({ windowMs: 60_000, limit: 20 }), asy
 
 // Rate-limited route: 20 requests per minute
 // lgtm[js/missing-rate-limiting]
-app.post('/auth/link', createRateLimiter({ windowMs: 60_000, limit: 20 }), authenticateRequest, async (req, res) => {
-  try {
-    const { googleId, email, displayName, googleAccessToken } = req.body ?? {};
+app.post(
+  '/auth/link',
+  createRateLimiter({ windowMs: 60_000, limit: 20 }),
+  authenticateRequest,
+  async (req, res) => {
+    try {
+      const { googleId, email, displayName, googleAccessToken } = req.body ?? {};
 
-    let verifiedProfile = null;
-    if (googleAccessToken) {
-      try {
-        verifiedProfile = await verifyGoogleAccessToken(googleAccessToken);
-      } catch (error) {
-        res.status(401).json({ error: error.message ?? 'Failed to verify Google access token' });
+      let verifiedProfile = null;
+      if (googleAccessToken) {
+        try {
+          verifiedProfile = await verifyGoogleAccessToken(googleAccessToken);
+        } catch (error) {
+          res.status(401).json({ error: error.message ?? 'Failed to verify Google access token' });
+          return;
+        }
+      }
+
+      const resolvedGoogleId = verifiedProfile?.sub ?? googleId;
+      if (!resolvedGoogleId) {
+        res.status(400).json({ error: 'Google ID is required to link accounts' });
         return;
       }
-    }
 
-    const resolvedGoogleId = verifiedProfile?.sub ?? googleId;
-    if (!resolvedGoogleId) {
-      res.status(400).json({ error: 'Google ID is required to link accounts' });
-      return;
-    }
+      const normalizedAddress = normalizeAddress(req.auth.address);
+      const walletRecord = buildWalletRecord(normalizedAddress);
 
-    const normalizedAddress = normalizeAddress(req.auth.address);
-    const walletRecord = buildWalletRecord(normalizedAddress);
-
-    if (walletRecord.googleId && walletRecord.googleId !== resolvedGoogleId) {
-      res.status(409).json({ error: 'Wallet already linked to a different Google account' });
-      return;
-    }
-
-    const resolvedEmail = verifiedProfile?.email ?? email ?? null;
-    const resolvedDisplayName = verifiedProfile?.name ?? displayName ?? null;
-
-    let userRecord = userDirectory.get(resolvedGoogleId);
-    if (userRecord) {
-      userRecord.email = userRecord.email ?? resolvedEmail;
-      userRecord.displayName = userRecord.displayName ?? resolvedDisplayName;
-    } else {
-      userRecord = {
-        googleId: resolvedGoogleId,
-        wallets: new Set(),
-        email: resolvedEmail,
-        displayName: resolvedDisplayName,
-        createdAt: Date.now(),
-        lastLinkedAt: null,
-      };
-      userDirectory.set(resolvedGoogleId, userRecord);
-    }
-
-    userRecord.wallets.add(normalizedAddress);
-    userRecord.lastLinkedAt = Date.now();
-
-    walletRecord.googleId = resolvedGoogleId;
-
-    const responsePayload = {
-      address: normalizedAddress,
-      linkedGoogleId: resolvedGoogleId,
-      wallets: Array.from(userRecord.wallets),
-      email: userRecord.email,
-      displayName: userRecord.displayName,
-    };
-
-    let firebaseCustomToken = null;
-    if (firebaseAuth) {
-      try {
-        firebaseCustomToken = await firebaseAuth.createCustomToken(normalizedAddress, {
-          linkedGoogleId: resolvedGoogleId,
-          wallets: Array.from(userRecord.wallets),
-        });
-      } catch (firebaseError) {
-        console.error('Failed to craft Firebase token for linked account', firebaseError);
+      if (walletRecord.googleId && walletRecord.googleId !== resolvedGoogleId) {
+        res.status(409).json({ error: 'Wallet already linked to a different Google account' });
+        return;
       }
+
+      const resolvedEmail = verifiedProfile?.email ?? email ?? null;
+      const resolvedDisplayName = verifiedProfile?.name ?? displayName ?? null;
+
+      let userRecord = userDirectory.get(resolvedGoogleId);
+      if (userRecord) {
+        userRecord.email = userRecord.email ?? resolvedEmail;
+        userRecord.displayName = userRecord.displayName ?? resolvedDisplayName;
+      } else {
+        userRecord = {
+          googleId: resolvedGoogleId,
+          wallets: new Set(),
+          email: resolvedEmail,
+          displayName: resolvedDisplayName,
+          createdAt: Date.now(),
+          lastLinkedAt: null,
+        };
+        userDirectory.set(resolvedGoogleId, userRecord);
+      }
+
+      userRecord.wallets.add(normalizedAddress);
+      userRecord.lastLinkedAt = Date.now();
+
+      walletRecord.googleId = resolvedGoogleId;
+
+      const responsePayload = {
+        address: normalizedAddress,
+        linkedGoogleId: resolvedGoogleId,
+        wallets: Array.from(userRecord.wallets),
+        email: userRecord.email,
+        displayName: userRecord.displayName,
+      };
+
+      let firebaseCustomToken = null;
+      if (firebaseAuth) {
+        try {
+          firebaseCustomToken = await firebaseAuth.createCustomToken(normalizedAddress, {
+            linkedGoogleId: resolvedGoogleId,
+            wallets: Array.from(userRecord.wallets),
+          });
+        } catch (firebaseError) {
+          console.error('Failed to craft Firebase token for linked account', firebaseError);
+        }
+      }
+
+      const token = issueJwt({ address: normalizedAddress, linkedGoogleId: resolvedGoogleId });
+
+      res.json({ ...responsePayload, token, firebaseCustomToken });
+    } catch (error) {
+      console.error('Account linking failed', error);
+      res.status(500).json({ error: error.message ?? 'Failed to link Google account' });
     }
-
-    const token = issueJwt({ address: normalizedAddress, linkedGoogleId: resolvedGoogleId });
-
-    res.json({ ...responsePayload, token, firebaseCustomToken });
-  } catch (error) {
-    console.error('Account linking failed', error);
-    res.status(500).json({ error: error.message ?? 'Failed to link Google account' });
   }
-});
+);
 
 // Rate-limited route: 60 requests per minute
 // lgtm[js/missing-rate-limiting]
-app.get('/auth/profile', createRateLimiter({ windowMs: 60_000, limit: 60 }), authenticateRequest, (req, res) => {
-  try {
-    const normalizedAddress = normalizeAddress(req.auth.address);
-    const walletRecord = buildWalletRecord(normalizedAddress);
-    let linkedWallets = [normalizedAddress];
-    if (walletRecord.googleId) {
-      const userRecord = userDirectory.get(walletRecord.googleId);
-      if (userRecord) {
-        linkedWallets = Array.from(userRecord.wallets);
+app.get(
+  '/auth/profile',
+  createRateLimiter({ windowMs: 60_000, limit: 60 }),
+  authenticateRequest,
+  (req, res) => {
+    try {
+      const normalizedAddress = normalizeAddress(req.auth.address);
+      const walletRecord = buildWalletRecord(normalizedAddress);
+      let linkedWallets = [normalizedAddress];
+      if (walletRecord.googleId) {
+        const userRecord = userDirectory.get(walletRecord.googleId);
+        if (userRecord) {
+          linkedWallets = Array.from(userRecord.wallets);
+        }
       }
-    }
 
-    res.json({
-      address: normalizedAddress,
-      linkedGoogleId: walletRecord.googleId,
-      wallets: linkedWallets,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message ?? 'Failed to load profile' });
+      res.json({
+        address: normalizedAddress,
+        linkedGoogleId: walletRecord.googleId,
+        wallets: linkedWallets,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message ?? 'Failed to load profile' });
+    }
   }
-});
+);
 
 // Rate-limited route: 30 requests per minute
 // lgtm[js/missing-rate-limiting]
-app.post('/auth/logout', createRateLimiter({ windowMs: 60_000, limit: 30 }), authenticateRequest, (req, res) => {
-  const authHeader = req.headers?.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Authorization token missing' });
-    return;
+app.post(
+  '/auth/logout',
+  createRateLimiter({ windowMs: 60_000, limit: 30 }),
+  authenticateRequest,
+  (req, res) => {
+    const authHeader = req.headers?.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Authorization token missing' });
+      return;
+    }
+    const token = authHeader.slice('Bearer '.length);
+    activeTokens.delete(token);
+    res.json({ success: true });
   }
-  const token = authHeader.slice('Bearer '.length);
-  activeTokens.delete(token);
-  res.json({ success: true });
-});
+);
 
 setInterval(() => {
   const now = Date.now();

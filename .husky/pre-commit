@@ -1,0 +1,8 @@
+# Abort on unstaged changes in husky config
+[ -n "$(git diff --name-only -- .husky/)" ] && {
+  echo "Husky config changed during commit. Aborting." >&2
+  exit 1
+}
+
+# Lint-staged will run prettier and eslint on staged files
+npx lint-staged

@@ -5,18 +5,18 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
-    const basePath = isProduction ? '/Fractal-Recipe-Generator/' : '/';
-    return {
-      base: basePath,
-      server: {
-        port: 3000,
-        host: '0.0.0.0',
+  const basePath = isProduction ? '/Fractal-Recipe-Generator/' : '/';
+  return {
+    base: basePath,
+    server: {
+      port: 3000,
+      host: '0.0.0.0',
+    },
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
       },
-      plugins: [react()],
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
-        }
-      }
-    };
+    },
+  };
 });

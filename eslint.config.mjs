@@ -5,7 +5,14 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'scripts/**', 'server/**']
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'eslint.config.mjs',
+      'scripts/**',
+      'server/**',
+      '.dependency-cruiser.js'
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

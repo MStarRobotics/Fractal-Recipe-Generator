@@ -35,9 +35,7 @@ const isEthereumProvider = (val: unknown): val is EthereumProvider => {
 
 const getEthereumProvider = (): EthereumProvider => {
   const globalWindow =
-    typeof globalThis === 'object' &&
-    'window' in globalThis &&
-    globalThis.window
+    typeof globalThis === 'object' && 'window' in globalThis && globalThis.window
       ? (globalThis.window as Window & { ethereum?: EthereumProvider })
       : undefined;
 
@@ -81,9 +79,7 @@ const requestJson = async <T>(path: string, options: RequestInit = {}): Promise<
 
 export const isMetaMaskAvailable = (): boolean => {
   const globalWindow =
-    typeof globalThis === 'object' &&
-    'window' in globalThis &&
-    globalThis.window
+    typeof globalThis === 'object' && 'window' in globalThis && globalThis.window
       ? (globalThis.window as Window & { ethereum?: EthereumProvider })
       : undefined;
   return Boolean(globalWindow?.ethereum);
@@ -108,9 +104,15 @@ export const signMessageWithWallet = async (message: string, address: Address): 
   return signature;
 };
 
-export type LinkWalletResponse = AuthProfile & { token: string; firebaseCustomToken?: string | null };
+export type LinkWalletResponse = AuthProfile & {
+  token: string;
+  firebaseCustomToken?: string | null;
+};
 
-export const verifySignature = async (address: Address, signature: string): Promise<VerifyResponse> => {
+export const verifySignature = async (
+  address: Address,
+  signature: string
+): Promise<VerifyResponse> => {
   return requestJson<VerifyResponse>('/auth/verify', {
     method: 'POST',
     body: JSON.stringify({ address, signature }),
@@ -126,7 +128,10 @@ export const fetchAuthenticatedProfile = async (token: string): Promise<AuthProf
   });
 };
 
-export const linkWalletToGoogleAccount = async (token: string, payload: LinkRequest): Promise<LinkWalletResponse> => {
+export const linkWalletToGoogleAccount = async (
+  token: string,
+  payload: LinkRequest
+): Promise<LinkWalletResponse> => {
   return requestJson<LinkWalletResponse>('/auth/link', {
     method: 'POST',
     body: JSON.stringify(payload),

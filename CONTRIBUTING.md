@@ -53,6 +53,24 @@ Thanks for your interest in contributing! This project is a Vite + React app wit
 - TypeScript is strict. Fix types rather than ignoring them.
 - CI runs lint + typecheck + build.
 
+### Pre-commit hooks
+
+This repo uses Husky + lint-staged to prevent committing code that fails:
+
+- Prettier formatting
+- ESLint (no warnings allowed)
+- TypeScript typecheck
+
+If the hook fails, fix the errors and re-stage your changes before committing.
+
+### CI pipeline
+
+The unified `master-pipeline` workflow runs on every push and PR:
+
+- Lint, typecheck, and build
+- Dependency audit (high severity)
+- CodeQL security analysis
+
 ## Testing
 
 - Unit-level checks are done via typecheck and lint.

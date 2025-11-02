@@ -18,9 +18,9 @@ export interface Recipe {
 
 export interface RecipeFormData {
   ingredients: string[];
-  cookingTime: typeof COOKING_TIMES[number];
-  dishType: typeof DISH_TYPES[number];
-  language: typeof LANGUAGES[number];
+  cookingTime: (typeof COOKING_TIMES)[number];
+  dishType: (typeof DISH_TYPES)[number];
+  language: (typeof LANGUAGES)[number];
 }
 
 export type RecipeSource = 'local' | 'onchain';
