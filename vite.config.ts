@@ -3,9 +3,11 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// Set production base path via environment variable VITE_PROD_BASE_PATH, falling back to default if not set.
+const PROD_BASE_PATH = process.env.VITE_PROD_BASE_PATH || '/Fractal-Recipe-Generator/';
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
-    const basePath = isProduction ? '/Fractal-Recipe-Generator/' : '/';
+  const basePath = isProduction ? PROD_BASE_PATH : '/';
     return {
       base: basePath,
       server: {

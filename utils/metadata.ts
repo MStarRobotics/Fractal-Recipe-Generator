@@ -35,7 +35,7 @@ const fromBase64 = (value: string) => {
     const binary = globalThis.atob(value);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.codePointAt(i) ?? 0;
+      bytes[i] = binary.charCodeAt(i);
     }
     return new TextDecoder().decode(bytes);
   }
