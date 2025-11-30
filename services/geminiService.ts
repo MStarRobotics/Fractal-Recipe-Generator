@@ -263,7 +263,7 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
         const bytes = new Uint8Array(result);
         let binary = '';
         for (let i = 0; i < bytes.byteLength; i++) {
-          binary += String.fromCodePoint(bytes[i]);
+          binary += String.fromCharCode(bytes[i]);
         }
         resolve(btoa(binary));
       } else {

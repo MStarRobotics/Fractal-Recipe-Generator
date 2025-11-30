@@ -124,7 +124,7 @@ try {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const privateKey = rawPrivateKey ? rawPrivateKey.replaceAll(String.raw`\n`, '\n') : undefined;
+  const privateKey = rawPrivateKey ? rawPrivateKey.replaceAll('\\n', '\n') : undefined;
 
   if (projectId && clientEmail && privateKey) {
     if (!admin.apps.length) {
@@ -179,7 +179,15 @@ const otpResetSchema = z.object({
 });
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
-const normalizePhone = (phone) => phone.replaceAll(/\D/g, '');
+const normalizePhone = (phone) => {
+  const digits = phone.replaceAll(/\D/g, '');
+  const minLen = 6;
+  const maxLen = 32;
+  if (digits.length < minLen || digits.length > maxLen) {
+    throw new Error('Normalized phone number has invalid length.');
+  }
+  return digits;
+};
 
 const normalizeAddress = (address) => {
   if (typeof address !== 'string' || !address.startsWith('0x')) {
