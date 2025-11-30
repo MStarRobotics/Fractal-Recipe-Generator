@@ -22,8 +22,9 @@ import {
   type UserCredential,
 } from 'firebase/auth';
 
-let firebaseApp: FirebaseApp | null | undefined;
-let firebaseAuth: Auth | null | undefined;
+let firebaseApp: FirebaseApp | null = null;
+let firebaseAuth: Auth | null = null;
+let firebaseInitialized = false;
 
 const loadFirebaseConfig = () => {
   const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
@@ -50,12 +51,13 @@ const loadFirebaseConfig = () => {
 };
 
 const ensureFirebase = (): { app: FirebaseApp; auth: Auth } | null => {
-  if (firebaseAuth !== undefined && firebaseApp !== undefined) {
+  if (firebaseInitialized) {
     if (firebaseApp && firebaseAuth) {
       return { app: firebaseApp, auth: firebaseAuth };
     }
     return null;
   }
+  firebaseInitialized = true;
 
   const config = loadFirebaseConfig();
   if (!config) {
