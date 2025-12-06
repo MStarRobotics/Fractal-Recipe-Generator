@@ -5,7 +5,10 @@ import { THEME_PROMPTS } from '../constants';
 
 // Env check - supports both Vite and standard node process.env
 const viteKey = import.meta.env?.VITE_GEMINI_API_KEY;
-const processKey = (globalThis as any)?.process?.env?.VITE_GEMINI_API_KEY || (globalThis as any)?.process?.env?.GEMINI_API_KEY;
+// Define valid type structure to avoid 'any'
+type EnvWithProcess = { process?: { env?: { VITE_GEMINI_API_KEY?: string; GEMINI_API_KEY?: string } } };
+const globalEnv = globalThis as unknown as EnvWithProcess;
+const processKey = globalEnv.process?.env?.VITE_GEMINI_API_KEY || globalEnv.process?.env?.GEMINI_API_KEY;
 const API_KEY = viteKey || processKey;
 
 const initModel = () => {
@@ -85,7 +88,7 @@ export const generateRecipe = async (inputs: RecipeFormData): Promise<Recipe> =>
 
     try {
         return JSON.parse(rawText) as Recipe;
-    } catch (e) {
+    } catch {
         console.error("JSON Parse fail:", rawText);
         throw new Error('AI returned invalid JSON. It happens sometimes.');
     }
@@ -176,9 +179,19 @@ export const generateRecipeVideo = async (
         const blob = await dl.blob();
         return URL.createObjectURL(blob);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
         // catch any weird google errors
-        const msg = err?.message || JSON.stringify(err);
+        let msg = 'Unknown error';
+        if (err instanceof Error) {
+            msg = err.message;
+        } else {
+             try {
+                msg = JSON.stringify(err);
+            } catch {
+                msg = String(err);
+            }
+        }
+        
         console.error('Video gen crashed:', msg);
         if (msg.includes('API key')) throw new Error('Check API Key permissions.');
         throw new Error('Video generation failed. Try again?');
