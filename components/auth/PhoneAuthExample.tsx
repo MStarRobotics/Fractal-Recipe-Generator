@@ -26,12 +26,12 @@ export function PhoneAuthExample() {
     try {
       // Create reCAPTCHA verifier (visible widget for better UX)
       const verifier = ensurePhoneRecaptcha('recaptcha-container', 'normal');
-      
+
       setStatus('Requesting SMS code...');
-      
+
       // Request SMS code
       const confirmationResult = await signInWithPhone(phoneNumber, verifier);
-      
+
       setConfirmation(confirmationResult);
       setStatus('SMS code sent! Check your phone.');
     } catch (err) {
@@ -72,7 +72,7 @@ export function PhoneAuthExample() {
             <input
               type="tel"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhoneNumber(e.target.value)}
               placeholder="+1 234 567 8900"
               className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
             />
@@ -85,7 +85,7 @@ export function PhoneAuthExample() {
           <div id="recaptcha-container" className="flex justify-center"></div>
 
           <button
-            onClick={handleSendCode}
+            onClick={() => void handleSendCode()}
             disabled={!phoneNumber}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           >
@@ -101,7 +101,7 @@ export function PhoneAuthExample() {
             <input
               type="text"
               value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerificationCode(e.target.value)}
               placeholder="123456"
               maxLength={6}
               className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
@@ -109,7 +109,7 @@ export function PhoneAuthExample() {
           </div>
 
           <button
-            onClick={handleVerifyCode}
+            onClick={() => void handleVerifyCode()}
             disabled={verificationCode.length !== 6}
             className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
           >

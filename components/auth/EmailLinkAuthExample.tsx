@@ -23,8 +23,9 @@ export function EmailLinkAuthExample() {
     // Check if current URL is a sign-in link
     if (isEmailSignInLink()) {
       setIsCompletingSignIn(true);
-      handleCompleteSignIn();
+      void handleCompleteSignIn();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendLink = async () => {
@@ -43,7 +44,7 @@ export function EmailLinkAuthExample() {
       };
 
       await sendEmailSignInLink(email, actionCodeSettings);
-      
+
       setStatus(
         'Sign-in link sent! Check your email and click the link to sign in. ' +
         'The link will work on any device.'
@@ -60,13 +61,13 @@ export function EmailLinkAuthExample() {
 
     try {
       const result = await completeEmailSignIn(providedEmail || email);
-      
+
       setStatus(`Successfully signed in as ${result.user.email}`);
       // Handle successful sign-in (e.g., redirect to dashboard)
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to complete sign-in';
-      
+
       // If email is missing, prompt user to enter it
       if (errorMessage.includes('Email address is required')) {
         setError('Please enter your email to complete sign-in');
@@ -95,14 +96,14 @@ export function EmailLinkAuthExample() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               placeholder="you@example.com"
               className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <button
-            onClick={() => handleCompleteSignIn(email)}
+            onClick={() => void handleCompleteSignIn()}
             disabled={!email}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           >
@@ -137,7 +138,7 @@ export function EmailLinkAuthExample() {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             placeholder="you@example.com"
             className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
           />
@@ -147,7 +148,7 @@ export function EmailLinkAuthExample() {
         </div>
 
         <button
-          onClick={handleSendLink}
+          onClick={() => void handleSendLink()}
           disabled={!email}
           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
         >

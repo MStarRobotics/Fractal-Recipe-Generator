@@ -16,6 +16,10 @@ import {
   type Auth,
   type User,
   type UserCredential,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  type ActionCodeSettings,
 } from 'firebase/auth';
 
 let firebaseApp: FirebaseApp | null | undefined;
@@ -180,3 +184,27 @@ export const firebaseSignOut = async (): Promise<void> => {
 };
 
 export const isFirebaseReady = (): boolean => Boolean(getFirebaseAuthInstance());
+
+export const sendEmailSignInLink = async (email: string, actionCodeSettings: ActionCodeSettings): Promise<void> => {
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
+  }
+  return sendSignInLinkToEmail(auth, email, actionCodeSettings);
+};
+
+export const isEmailSignInLink = (url?: string): boolean => {
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    return false;
+  }
+  return isSignInWithEmailLink(auth, url || window.location.href);
+};
+
+export const completeEmailSignIn = async (email: string, url?: string): Promise<UserCredential> => {
+  const auth = getFirebaseAuthInstance();
+  if (!auth) {
+    throw new Error('Firebase is not configured. Set VITE_FIREBASE_* environment variables.');
+  }
+  return signInWithEmailLink(auth, email, url || window.location.href);
+};
