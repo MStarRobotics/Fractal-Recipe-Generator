@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Fractal Recipe Generator",
+  "description": "A retro, arcade-style recipe generator where users explore infinite culinary branches by adding ingredients to a rotating fractal cube, powered by the Gemini API.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
