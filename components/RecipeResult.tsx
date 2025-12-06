@@ -1,7 +1,7 @@
 // Modal component that renders generated recipes and media workflows.
 import * as React from 'react';
 import { Recipe } from '../types';
-import { generateRecipeVideo, transcribeAudio } from '../services/geminiService';
+import { generateRecipeVideo, transcribeAudio } from '../services/contentEngine';
 import { VIDEO_GENERATION_MESSAGES, THEMATIC_BACKGROUNDS } from '../constants';
 
 // Aistudio types may not be globally available, so we declare them locally.
@@ -131,43 +131,43 @@ const VideoPlayer: React.FC<{
   onTogglePlayPause,
   onVolumeChange,
 }) => (
-  <section
-    className="w-full aspect-square video-container"
-    aria-label="Recipe video player with playback controls"
-    onMouseEnter={() => onShowControls(true)}
-    onMouseLeave={() => onShowControls(false)}
-    onFocus={() => onShowControls(true)}
-    onBlur={() => onShowControls(false)}
-  >
-    <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" aria-label="Generated recipe video">
-      <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
-    </video>
-    <audio ref={audioRef} src={recordedAudioUrl || ''} loop>
-      <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
-    </audio>
-    <div className={`video-controls-overlay ${showControls || !isPlaying ? 'visible' : ''}`}>
-      <button
-        type="button"
-        className="video-control-button text-4xl"
-        onClick={onTogglePlayPause}
-        aria-label={isPlaying ? 'Pause video' : 'Play video'}
-      >
-        {isPlaying ? '❚❚' : '►'}
-      </button>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.05"
-        value={volume}
-        onChange={onVolumeChange}
-        onClick={(event: React.MouseEvent<HTMLInputElement>) => event.stopPropagation()}
-        className="volume-slider"
-        aria-label="Video and audio volume"
-      />
-    </div>
-  </section>
-);
+    <section
+      className="w-full aspect-square video-container"
+      aria-label="Recipe video player with playback controls"
+      onMouseEnter={() => onShowControls(true)}
+      onMouseLeave={() => onShowControls(false)}
+      onFocus={() => onShowControls(true)}
+      onBlur={() => onShowControls(false)}
+    >
+      <video ref={videoRef} src={videoUrl} loop className="w-full h-full object-contain" aria-label="Generated recipe video">
+        <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
+      </video>
+      <audio ref={audioRef} src={recordedAudioUrl || ''} loop>
+        <track kind="captions" src="data:text/vtt,WEBVTT" label="No captions" default />
+      </audio>
+      <div className={`video-controls-overlay ${showControls || !isPlaying ? 'visible' : ''}`}>
+        <button
+          type="button"
+          className="video-control-button text-4xl"
+          onClick={onTogglePlayPause}
+          aria-label={isPlaying ? 'Pause video' : 'Play video'}
+        >
+          {isPlaying ? '❚❚' : '►'}
+        </button>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={volume}
+          onChange={onVolumeChange}
+          onClick={(event: React.MouseEvent<HTMLInputElement>) => event.stopPropagation()}
+          className="volume-slider"
+          aria-label="Video and audio volume"
+        />
+      </div>
+    </section>
+  );
 
 // Sub-component for image preview and video creation controls
 const ImagePreview: React.FC<{
@@ -201,52 +201,52 @@ const ImagePreview: React.FC<{
   onThemeSelect,
   playSound,
 }) => (
-  <>
-    {safeImageSrc ? (
-      <img
-        ref={previewImgRef}
-        src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
-        alt={safeAlt}
-        className="w-full aspect-square object-cover recipe-image-retro"
-        loading="lazy"
-        referrerPolicy="no-referrer"
-      />
-    ) : (
-      <div className="w-full aspect-square grid place-items-center border border-green-800 bg-black/40 text-green-400">
-        NO IMAGE
-      </div>
-    )}
-    <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
-      <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
-      <div className="flex items-center gap-2">
-        <label htmlFor="image-upload" className="arcade-button-small cursor-pointer w-1/2 text-center">
-          {uploadedImage ? 'IMAGE OK!' : 'ADD PHOTO'}
-        </label>
-        <input
-          id="image-upload"
-          type="file"
-          accept="image/jpeg, image/png"
-          onChange={onImageUpload}
-          className="hidden"
+    <>
+      {safeImageSrc ? (
+        <img
+          ref={previewImgRef}
+          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+          alt={safeAlt}
+          className="w-full aspect-square object-cover recipe-image-retro"
+          loading="lazy"
+          referrerPolicy="no-referrer"
         />
-        <p className="pixel-font-small text-xs text-gray-400">Add a custom title image.</p>
+      ) : (
+        <div className="w-full aspect-square grid place-items-center border border-green-800 bg-black/40 text-green-400">
+          NO IMAGE
+        </div>
+      )}
+      <div className="w-full p-3 border-2 border-dashed border-green-800 bg-black/30 space-y-3">
+        <h4 className="pixel-font-small text-center text-yellow-400">CREATE VIDEO TRAILER</h4>
+        <div className="flex items-center gap-2">
+          <label htmlFor="image-upload" className="arcade-button-small cursor-pointer w-1/2 text-center">
+            {uploadedImage ? 'IMAGE OK!' : 'ADD PHOTO'}
+          </label>
+          <input
+            id="image-upload"
+            type="file"
+            accept="image/jpeg, image/png"
+            onChange={onImageUpload}
+            className="hidden"
+          />
+          <p className="pixel-font-small text-xs text-gray-400">Add a custom title image.</p>
+        </div>
+        <RecordingControls
+          isRecording={isRecording}
+          recordedAudioUrl={recordedAudioUrl}
+          isTranscribing={isTranscribing}
+          transcribedText={transcribedText}
+          onStartRecording={onStartRecording}
+          onStopRecording={onStopRecording}
+        />
+        <ThemeSelector
+          selectedTheme={selectedTheme}
+          onThemeSelect={onThemeSelect}
+          playSound={playSound}
+        />
       </div>
-      <RecordingControls
-        isRecording={isRecording}
-        recordedAudioUrl={recordedAudioUrl}
-        isTranscribing={isTranscribing}
-        transcribedText={transcribedText}
-        onStartRecording={onStartRecording}
-        onStopRecording={onStopRecording}
-      />
-      <ThemeSelector
-        selectedTheme={selectedTheme}
-        onThemeSelect={onThemeSelect}
-        playSound={playSound}
-      />
-    </div>
-  </>
-);
+    </>
+  );
 
 // Sub-component for share and save controls
 const ShareControls: React.FC<{
@@ -270,70 +270,70 @@ const ShareControls: React.FC<{
   onGenerateVideo,
   onShare,
 }) => (
-  <div className="flex flex-col items-center gap-3 mt-4 w-full">
-    <div className="flex flex-wrap gap-2 justify-center">
-      <div className="share-indicator-container">
-        <button
-          onClick={onSave}
-          disabled={isSaved || isSaving}
-          className={`arcade-button-small ${isSaving ? 'saved-animation' : ''}`}
-        >
-          {isSaved ? 'SAVED!' : 'SAVE TO COOKBOOK'}
-        </button>
-        {showSaveConfirmation && (
-          <span className="share-indicator-text">SAVED TO COOKBOOK!</span>
+    <div className="flex flex-col items-center gap-3 mt-4 w-full">
+      <div className="flex flex-wrap gap-2 justify-center">
+        <div className="share-indicator-container">
+          <button
+            onClick={onSave}
+            disabled={isSaved || isSaving}
+            className={`arcade-button-small ${isSaving ? 'saved-animation' : ''}`}
+          >
+            {isSaved ? 'SAVED!' : 'SAVE TO COOKBOOK'}
+          </button>
+          {showSaveConfirmation && (
+            <span className="share-indicator-text">SAVED TO COOKBOOK!</span>
+          )}
+        </div>
+        {!videoUrl && (
+          <button onClick={onGenerateVideo} className="arcade-button-small" disabled={isTranscribing}>
+            GENERATE VIDEO
+          </button>
         )}
       </div>
+
       {!videoUrl && (
-        <button onClick={onGenerateVideo} className="arcade-button-small" disabled={isTranscribing}>
-          GENERATE VIDEO
-        </button>
+        <p className="pixel-font-small text-xs text-gray-500 mt-2 text-center w-full max-w-xs">
+          Video generation uses the Veo API and may incur costs.{' '}
+          <a
+            href="https://ai.google.dev/gemini-api/docs/billing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-400 underline hover:text-yellow-400"
+          >
+            Learn more.
+          </a>
+        </p>
       )}
-    </div>
 
-    {!videoUrl && (
-      <p className="pixel-font-small text-xs text-gray-500 mt-2 text-center w-full max-w-xs">
-        Video generation uses the Veo API and may incur costs.{' '}
-        <a
-          href="https://ai.google.dev/gemini-api/docs/billing"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-green-400 underline hover:text-yellow-400"
-        >
-          Learn more.
-        </a>
-      </p>
-    )}
-
-    <div className="flex items-center gap-2 border-t-2 border-dashed border-green-800 pt-3 w-full justify-center">
-      <span className="pixel-font-small text-gray-400">SHARE ON:</span>
-      <button
-        title="Share on X"
-        onClick={() => onShare('twitter')}
-        className="arcade-button-small !p-2 !text-base"
-      >
-        X
-      </button>
-      <button
-        title="Share on Facebook"
-        onClick={() => onShare('facebook')}
-        className="arcade-button-small !p-2 !text-base"
-      >
-        F
-      </button>
-      <div className="share-indicator-container">
+      <div className="flex items-center gap-2 border-t-2 border-dashed border-green-800 pt-3 w-full justify-center">
+        <span className="pixel-font-small text-gray-400">SHARE ON:</span>
         <button
-          title="Copy Link"
-          onClick={() => onShare('copy')}
-          className="arcade-button-small !p-2 flex items-center justify-center"
+          title="Share on X"
+          onClick={() => onShare('twitter')}
+          className="arcade-button-small !p-2 !text-base"
         >
-          <span className="material-symbols-outlined !text-base leading-none">link</span>
+          X
         </button>
-        {copyStatus && <span className="share-indicator-text">{copyStatus}</span>}
+        <button
+          title="Share on Facebook"
+          onClick={() => onShare('facebook')}
+          className="arcade-button-small !p-2 !text-base"
+        >
+          F
+        </button>
+        <div className="share-indicator-container">
+          <button
+            title="Copy Link"
+            onClick={() => onShare('copy')}
+            className="arcade-button-small !p-2 flex items-center justify-center"
+          >
+            <span className="material-symbols-outlined !text-base leading-none">link</span>
+          </button>
+          {copyStatus && <span className="share-indicator-text">{copyStatus}</span>}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 
 // Sub-component for recipe details display
 const RecipeDetails: React.FC<{
@@ -351,54 +351,54 @@ const RecipeDetails: React.FC<{
   instructionsContainerRef,
   escapeText,
 }) => (
-  <div ref={scrollContainerRef} className="recipe-details-scroll text-left">
-    <h2 className="pixel-font-medium text-yellow-400 text-center mb-2">{safeDishName}</h2>
-    <p className="pixel-font-small text-gray-300 mb-4 text-center italic">&quot;{safeDescription}&quot;</p>
+    <div ref={scrollContainerRef} className="recipe-details-scroll text-left">
+      <h2 className="pixel-font-medium text-yellow-400 text-center mb-2">{safeDishName}</h2>
+      <p className="pixel-font-small text-gray-300 mb-4 text-center italic">&quot;{safeDescription}&quot;</p>
 
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center mb-4 pixel-font-small border-y-2 border-dashed border-green-700 py-2">
-      <div>
-        <span className="text-green-400 block text-xs">TIME</span> {recipe.timeNeeded}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center mb-4 pixel-font-small border-y-2 border-dashed border-green-700 py-2">
+        <div>
+          <span className="text-green-400 block text-xs">TIME</span> {recipe.timeNeeded}
+        </div>
+        <div>
+          <span className="text-green-400 block text-xs">COST</span> {recipe.estimatedCost}
+        </div>
+        <div>
+          <span className="text-green-400 block text-xs">DIFFICULTY</span> {recipe.difficulty}
+        </div>
+        <div>
+          <span className="text-green-400 block text-xs">SERVINGS</span> {recipe.servings}
+        </div>
       </div>
-      <div>
-        <span className="text-green-400 block text-xs">COST</span> {recipe.estimatedCost}
-      </div>
-      <div>
-        <span className="text-green-400 block text-xs">DIFFICULTY</span> {recipe.difficulty}
-      </div>
-      <div>
-        <span className="text-green-400 block text-xs">SERVINGS</span> {recipe.servings}
-      </div>
+
+      <h3 className="pixel-font-small text-green-400 underline mb-2">INGREDIENTS:</h3>
+      <ul className="list-disc list-inside mb-4 pixel-font-small">
+        {recipe.ingredients.map((ing) => (
+          <li key={`${ing.name}-${ing.quantity}`}>
+            <span className="font-bold">{escapeText(ing.quantity)}</span> {escapeText(ing.name)}
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="pixel-font-small text-green-400 underline mb-2">INSTRUCTIONS:</h3>
+      <ol
+        ref={instructionsContainerRef}
+        className="list-decimal list-inside space-y-2 mb-4 pixel-font-small"
+      >
+        {recipe.instructions.map((step, i) => (
+          <li key={`${step}-${step.length}`} className={`instruction-step delay-step-${i % 24}`}>
+            {escapeText(step)}
+          </li>
+        ))}
+      </ol>
+
+      {recipe.analysis && (
+        <div className="retro-terminal">
+          <h4>CHEF&apos;S ANALYSIS:</h4>
+          <p>&quot;{escapeText(recipe.analysis)}&quot;</p>
+        </div>
+      )}
     </div>
-
-    <h3 className="pixel-font-small text-green-400 underline mb-2">INGREDIENTS:</h3>
-    <ul className="list-disc list-inside mb-4 pixel-font-small">
-      {recipe.ingredients.map((ing) => (
-        <li key={`${ing.name}-${ing.quantity}`}>
-          <span className="font-bold">{escapeText(ing.quantity)}</span> {escapeText(ing.name)}
-        </li>
-      ))}
-    </ul>
-
-    <h3 className="pixel-font-small text-green-400 underline mb-2">INSTRUCTIONS:</h3>
-    <ol
-      ref={instructionsContainerRef}
-      className="list-decimal list-inside space-y-2 mb-4 pixel-font-small"
-    >
-      {recipe.instructions.map((step, i) => (
-        <li key={`${step}-${step.length}`} className={`instruction-step delay-step-${i % 24}`}>
-          {escapeText(step)}
-        </li>
-      ))}
-    </ol>
-
-    {recipe.analysis && (
-      <div className="retro-terminal">
-        <h4>CHEF&apos;S ANALYSIS:</h4>
-        <p>&quot;{escapeText(recipe.analysis)}&quot;</p>
-      </div>
-    )}
-  </div>
-);
+  );
 
 // Sub-component for sharing controls to reduce main component complexity
 
@@ -481,9 +481,9 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       }
     );
 
-  for (const instruction of instructionElements as unknown as Element[]) {
-    observer.observe(instruction);
-  }
+    for (const instruction of instructionElements as unknown as Element[]) {
+      observer.observe(instruction);
+    }
 
     // Cleanup function to unobserve elements when the component/recipe changes.
     return () => {
@@ -496,17 +496,17 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   // Effect for loading drafts and handling media recorder cleanup
   React.useEffect(() => {
     const transcribeLoadedAudio = async (blob: Blob) => {
-        setIsTranscribing(true);
-        setTranscribedText(null);
-        try {
-            const text = await transcribeAudio(blob);
-            setTranscribedText(text || "COULD NOT TRANSCRIBE. TRY AGAIN.");
-        } catch (e) {
-            console.error("Failed to transcribe loaded audio:", e);
-            setTranscribedText("TRANSCRIPTION FAILED.");
-        } finally {
-            setIsTranscribing(false);
-        }
+      setIsTranscribing(true);
+      setTranscribedText(null);
+      try {
+        const text = await transcribeAudio(blob);
+        setTranscribedText(text || "COULD NOT TRANSCRIBE. TRY AGAIN.");
+      } catch (e) {
+        console.error("Failed to transcribe loaded audio:", e);
+        setTranscribedText("TRANSCRIPTION FAILED.");
+      } finally {
+        setIsTranscribing(false);
+      }
     };
 
     // Load video creation draft from localStorage
@@ -555,14 +555,14 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
           url: URL.createObjectURL(file),
           base64: base64String
         });
-         // Save image to draft
+        // Save image to draft
         try {
-            const existingDraftJson = localStorage.getItem(DRAFT_KEY);
-            const draft = existingDraftJson ? JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string } : {};
-            draft.imageBase64 = base64String;
-            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-        } catch(e) {
-            console.error("Failed to save image draft", e);
+          const existingDraftJson = localStorage.getItem(DRAFT_KEY);
+          const draft = existingDraftJson ? JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string } : {};
+          draft.imageBase64 = base64String;
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        } catch (e) {
+          console.error("Failed to save image draft", e);
         }
       };
       reader.readAsDataURL(file);
@@ -575,12 +575,12 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       try {
         const stream = await globalThis.navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorderRef.current = new MediaRecorder(stream);
-        
+
         const localAudioChunks: Blob[] = [];
-  mediaRecorderRef.current.ondataavailable = (event: BlobEvent) => {
+        mediaRecorderRef.current.ondataavailable = (event: BlobEvent) => {
           localAudioChunks.push(event.data);
         };
-        
+
         mediaRecorderRef.current.onstop = async () => {
           const audioBlob = new Blob(localAudioChunks, { type: 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
@@ -617,19 +617,19 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
           };
           reader.readAsDataURL(audioBlob);
         };
-        
+
         // Clear previous audio from draft only after successfully getting the stream
         try {
           const existingDraftJson = localStorage.getItem(DRAFT_KEY);
           if (existingDraftJson) {
-              const draft = JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string };
-              delete draft.audioBase64;
-              localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+            const draft = JSON.parse(existingDraftJson) as { imageBase64?: string; audioBase64?: string };
+            delete draft.audioBase64;
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
           }
-        } catch(e) {
+        } catch (e) {
           console.error("Failed to clear audio draft", e);
         }
-        
+
         mediaRecorderRef.current.start();
         setIsRecording(true);
         setRecordedAudioUrl(null);
@@ -667,7 +667,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     setVideoError(null);
     setVideoUrl(null);
 
-  let messageInterval: ReturnType<typeof globalThis.setInterval> | undefined;
+    let messageInterval: ReturnType<typeof globalThis.setInterval> | undefined;
 
     try {
       setVideoLoadingMessage(VIDEO_GENERATION_MESSAGES[0]);
@@ -758,7 +758,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
         });
     }
   };
-  
+
   const handleSave = () => {
     if (isSaved || isSaving) return;
     playSound();
@@ -783,20 +783,20 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
       }
     }
   };
-  
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = Number.parseFloat(e.target.value);
     setVolume(newVolume);
     if (videoRef.current) videoRef.current.volume = newVolume;
     if (audioRef.current) audioRef.current.volume = newVolume;
   };
-  
+
   React.useEffect(() => {
     const videoElement = videoRef.current;
     const audioElement = audioRef.current;
     if (videoElement && videoUrl) {
       const syncPlayState = () => setIsPlaying(!videoElement.paused);
-      
+
       videoElement.addEventListener('play', syncPlayState);
       videoElement.addEventListener('pause', syncPlayState);
 
@@ -816,22 +816,22 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
     return (
       <div className="modal-backdrop">
         <div className="modal-content text-center items-center flex flex-col justify-center">
-            {videoGenerationStep === 'generating' && (
-              <>
-                <div className="video-loader"></div>
-                <h3 className="pixel-font-medium text-yellow-400 flex items-end text-center">
-                  <span>{videoLoadingMessage}</span>
-                   <span className="loading-ellipsis ml-1">
-                      <span>.</span>
-                      <span>.</span>
-                      <span>.</span>
-                   </span>
-                </h3>
-                <div className="progress-bar-container">
-                  <div className="progress-bar-inner"></div>
-                </div>
-              </>
-            )}
+          {videoGenerationStep === 'generating' && (
+            <>
+              <div className="video-loader"></div>
+              <h3 className="pixel-font-medium text-yellow-400 flex items-end text-center">
+                <span>{videoLoadingMessage}</span>
+                <span className="loading-ellipsis ml-1">
+                  <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
+                </span>
+              </h3>
+              <div className="progress-bar-container">
+                <div className="progress-bar-inner"></div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -840,8 +840,8 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
   return (
     <div className="modal-backdrop">
       <div className="modal-content recipe-result-modal">
-        <button 
-          onClick={() => { playSound(); onClose(); }} 
+        <button
+          onClick={() => { playSound(); onClose(); }}
           className="arcade-close-button top-2 right-2 z-20"
           aria-label="Close recipe"
         >
@@ -895,7 +895,7 @@ const RecipeResult: React.FC<RecipeResultProps> = ({ recipe, imageUrl, onClose, 
               onShare={handleShare}
             />
           </div>
-          
+
           <RecipeDetails
             recipe={recipe}
             safeDishName={safeDishName}

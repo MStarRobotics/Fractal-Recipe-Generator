@@ -5,12 +5,12 @@ import RecipeResult from './components/RecipeResult';
 import SavedRecipesModal from './components/SavedRecipesModal';
 import { formatEther, type Address } from 'viem';
 import { RecipeFormData, SavedRecipe, LoadingState, AuthProfile } from './types';
-import { generateRecipe, generateImageForRecipe } from './services/geminiService';
+import { generateRecipe, generateImageForRecipe } from './services/contentEngine';
 import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES } from './constants';
 import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename, fetchMembershipPrice, checkLifetimeMembership, purchaseLifetimeMembership, DEFAULT_MEMBERSHIP_PRICE_WEI } from './services/baseRegistry';
 import { clearPersistedToken, fetchAuthenticatedProfile, isMetaMaskAvailable, linkWalletToGoogleAccount, persistAuthToken, requestNonce, retrievePersistedToken, signMessageWithWallet, verifySignature, logout as logoutSession } from './services/authService';
 import type { User } from 'firebase/auth';
-import { firebaseSignOut, isFirebaseReady, signInWithFirebaseCustomToken, signInWithGooglePopup, subscribeToFirebaseAuth } from './services/firebaseClient';
+import { logout, isReady, loginCustomToken, loginWithGoogle, subscribeAuth } from './services/authAdapter';
 import { preloadGoogleIdentity, revokeGoogleIdentityToken, signInWithGoogleIdentity, type GoogleIdentityProfile } from './services/googleIdentity';
 
 const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed' | 'Neutral' | 'Unknown' => {
@@ -145,7 +145,7 @@ const App: React.FC = () => {
   // Helper: handle Firebase custom token after account link
   const handleFirebaseCustomToken = React.useCallback(async (token: string): Promise<void> => {
     try {
-      await signInWithFirebaseCustomToken(token);
+      await loginCustomToken(token);
       setGoogleAuthStatus('GOOGLE ACCOUNT LINKED WITH WALLET');
     } catch (firebaseError) {
       console.error('Failed to activate Firebase custom token', firebaseError);
@@ -156,7 +156,7 @@ const App: React.FC = () => {
   // Helper: activate Firebase for wallet sign-in
   const activateFirebaseForWallet = React.useCallback(async (token: string): Promise<void> => {
     try {
-      await signInWithFirebaseCustomToken(token);
+      await loginCustomToken(token);
       setGoogleAuthStatus('WALLET SIGNED IN WITH FIREBASE');
     } catch (firebaseError) {
       console.error('Failed to activate Firebase session for wallet login', firebaseError);
@@ -350,7 +350,7 @@ const App: React.FC = () => {
   const [isWalletBusy, setIsWalletBusy] = React.useState(false);
 
   React.useEffect(() => {
-    const unsubscribe = subscribeToFirebaseAuth((user) => {
+    const unsubscribe = subscribeAuth((user) => {
       setFirebaseUser(user);
     });
     return () => {
@@ -702,15 +702,15 @@ const App: React.FC = () => {
   const handleGoogleAuthToggle = React.useCallback(async () => {
     playSound();
 
-    if (isFirebaseReady()) {
+    if (isReady()) {
       try {
         if (firebaseUser) {
-          await firebaseSignOut();
+          await logout();
           setGoogleAuthStatus('GOOGLE SIGNED OUT');
           return;
         }
 
-        const credential = await signInWithGooglePopup();
+        const credential = await loginWithGoogle();
         const descriptor = credential.user.email ?? credential.user.displayName ?? credential.user.uid;
         setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
         if (authToken) {
@@ -756,10 +756,10 @@ const App: React.FC = () => {
       return;
     }
 
-    if (isFirebaseReady()) {
+    if (isReady()) {
       try {
         if (!firebaseUser) {
-          const credential = await signInWithGooglePopup();
+          const credential = await loginWithGoogle();
           const descriptor = credential.user.email ?? credential.user.displayName ?? credential.user.uid;
           setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
           await linkGoogleAccountToWallet({ firebaseUser: credential.user });

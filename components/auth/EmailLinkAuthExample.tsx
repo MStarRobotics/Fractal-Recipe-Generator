@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import type { ActionCodeSettings } from 'firebase/auth';
 import {
-  sendEmailSignInLink,
-  isEmailSignInLink,
-  completeEmailSignIn,
-} from '../../services/firebaseClient';
+  sendMagicLink,
+  isMagicLink,
+  finishMagicLink,
+} from '../../services/authAdapter';
 
 /**
  * Example component demonstrating Firebase Email Link (Passwordless) Authentication.
@@ -21,7 +21,7 @@ export function EmailLinkAuthExample() {
 
   useEffect(() => {
     // Check if current URL is a sign-in link
-    if (isEmailSignInLink()) {
+    if (isMagicLink()) {
       setIsCompletingSignIn(true);
       void handleCompleteSignIn();
     }
@@ -43,7 +43,7 @@ export function EmailLinkAuthExample() {
         // android: { packageName: 'com.example.app', installApp: true },
       };
 
-      await sendEmailSignInLink(email, actionCodeSettings);
+      await sendMagicLink(email, actionCodeSettings);
 
       setStatus(
         'Sign-in link sent! Check your email and click the link to sign in. ' +
@@ -60,7 +60,7 @@ export function EmailLinkAuthExample() {
     setStatus('Completing sign-in...');
 
     try {
-      const result = await completeEmailSignIn(providedEmail || email);
+      const result = await finishMagicLink(providedEmail || email);
 
       setStatus(`Successfully signed in as ${result.user.email}`);
       // Handle successful sign-in (e.g., redirect to dashboard)

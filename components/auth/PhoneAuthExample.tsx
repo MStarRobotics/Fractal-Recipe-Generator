@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ConfirmationResult } from 'firebase/auth';
-import { ensurePhoneRecaptcha, signInWithPhone, confirmPhoneCode } from '../../services/firebaseClient';
+import { initRecaptcha, sendSms, verifySms } from '../../services/authAdapter';
 
 /**
  * Example component demonstrating Firebase Phone Authentication.
@@ -26,12 +26,12 @@ export function PhoneAuthExample() {
     try {
       // Create reCAPTCHA verifier (visible widget for better UX)
       // Note: The service helper manages the verifier instance internally
-      ensurePhoneRecaptcha('recaptcha-container');
+      initRecaptcha('recaptcha-container');
 
       setStatus('Requesting SMS code...');
 
       // Request SMS code
-      const confirmationResult = await signInWithPhone(phoneNumber, 'recaptcha-container');
+      const confirmationResult = await sendSms(phoneNumber, 'recaptcha-container');
 
       setConfirmation(confirmationResult);
       setStatus('SMS code sent! Check your phone.');
@@ -51,7 +51,7 @@ export function PhoneAuthExample() {
     setStatus('Verifying code...');
 
     try {
-      const result = await confirmPhoneCode(confirmation, verificationCode);
+      const result = await verifySms(confirmation, verificationCode);
       setStatus(`Signed in as ${result.user.phoneNumber}`);
       // Handle successful sign-in (e.g., redirect, update UI state)
     } catch (err) {
