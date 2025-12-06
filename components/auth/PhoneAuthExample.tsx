@@ -25,12 +25,13 @@ export function PhoneAuthExample() {
 
     try {
       // Create reCAPTCHA verifier (visible widget for better UX)
-      const verifier = ensurePhoneRecaptcha('recaptcha-container', 'normal');
+      // Note: The service helper manages the verifier instance internally
+      ensurePhoneRecaptcha('recaptcha-container');
 
       setStatus('Requesting SMS code...');
 
       // Request SMS code
-      const confirmationResult = await signInWithPhone(phoneNumber, verifier);
+      const confirmationResult = await signInWithPhone(phoneNumber, 'recaptcha-container');
 
       setConfirmation(confirmationResult);
       setStatus('SMS code sent! Check your phone.');
