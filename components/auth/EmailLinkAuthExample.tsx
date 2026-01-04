@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ActionCodeSettings } from 'firebase/auth';
 import {
   sendMagicLink,
@@ -19,14 +19,37 @@ export function EmailLinkAuthExample() {
   const [error, setError] = useState('');
   const [isCompletingSignIn, setIsCompletingSignIn] = useState(false);
 
+  const handleCompleteSignIn = useCallback(async (providedEmail?: string) => {
+    setError('');
+    setStatus('Completing sign-in...');
+
+    try {
+      const result = await completeEmailSignIn(providedEmail || email);
+      
+      setStatus(`Successfully signed in as ${result.user.email}`);
+      // Handle successful sign-in (e.g., redirect to dashboard)
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to complete sign-in';
+      
+      // If email is missing, prompt user to enter it
+      if (errorMessage.includes('Email address is required')) {
+        setError('Please enter your email to complete sign-in');
+        setIsCompletingSignIn(true);
+      } else {
+        setError(errorMessage);
+      }
+      setStatus('');
+    }
+  }, [email]);
+
   useEffect(() => {
     // Check if current URL is a sign-in link
     if (isMagicLink()) {
       setIsCompletingSignIn(true);
       void handleCompleteSignIn();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
 
   const handleSendLink = async () => {
     setError('');
@@ -55,29 +78,6 @@ export function EmailLinkAuthExample() {
     }
   };
 
-  const handleCompleteSignIn = async (providedEmail?: string) => {
-    setError('');
-    setStatus('Completing sign-in...');
-
-    try {
-      const result = await finishMagicLink(providedEmail || email);
-
-      setStatus(`Successfully signed in as ${result.user.email}`);
-      // Handle successful sign-in (e.g., redirect to dashboard)
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to complete sign-in';
-
-      // If email is missing, prompt user to enter it
-      if (errorMessage.includes('Email address is required')) {
-        setError('Please enter your email to complete sign-in');
-        setIsCompletingSignIn(true);
-      } else {
-        setError(errorMessage);
-      }
-      setStatus('');
-    }
-  };
 
   if (isCompletingSignIn) {
     return (

@@ -57,7 +57,7 @@ jobs:
           PASSWORD_MIN_LENGTH=10
           PWD_RESET_OTP_TTL_MS=600000
           PWD_RESET_MAX_ATTEMPTS=5
-          WEBHOOK_SECRET=ci-webhook-secret
+          GITHUB_WEBHOOK_SECRET=ci-webhook-secret
           EOF
 
       - name: Install dependencies
