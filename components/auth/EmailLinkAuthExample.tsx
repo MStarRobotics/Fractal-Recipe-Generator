@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ActionCodeSettings } from 'firebase/auth';
 import {
-  sendEmailSignInLink,
-  isEmailSignInLink,
-  completeEmailSignIn,
-} from '../../services/firebaseClient';
+  sendMagicLink,
+  isMagicLink,
+  finishMagicLink,
+} from '../../services/authAdapter';
 
 /**
  * Example component demonstrating Firebase Email Link (Passwordless) Authentication.
@@ -45,11 +45,11 @@ export function EmailLinkAuthExample() {
 
   useEffect(() => {
     // Check if current URL is a sign-in link
-    if (isEmailSignInLink()) {
+    if (isMagicLink()) {
       setIsCompletingSignIn(true);
       void handleCompleteSignIn();
     }
-  }, [handleCompleteSignIn]);
+
 
   const handleSendLink = async () => {
     setError('');
@@ -66,8 +66,8 @@ export function EmailLinkAuthExample() {
         // android: { packageName: 'com.example.app', installApp: true },
       };
 
-      await sendEmailSignInLink(email, actionCodeSettings);
-      
+      await sendMagicLink(email, actionCodeSettings);
+
       setStatus(
         'Sign-in link sent! Check your email and click the link to sign in. ' +
         'The link will work on any device.'
@@ -77,6 +77,7 @@ export function EmailLinkAuthExample() {
       setStatus('');
     }
   };
+
 
   if (isCompletingSignIn) {
     return (
@@ -102,7 +103,7 @@ export function EmailLinkAuthExample() {
           </div>
 
           <button
-            onClick={() => handleCompleteSignIn(email)}
+            onClick={() => void handleCompleteSignIn()}
             disabled={!email}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           >
@@ -147,7 +148,7 @@ export function EmailLinkAuthExample() {
         </div>
 
         <button
-          onClick={handleSendLink}
+          onClick={() => void handleSendLink()}
           disabled={!email}
           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
         >

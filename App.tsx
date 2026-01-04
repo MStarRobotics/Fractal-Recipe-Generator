@@ -5,12 +5,12 @@ import RecipeResult from './components/RecipeResult';
 import SavedRecipesModal from './components/SavedRecipesModal';
 import { formatEther, type Address } from 'viem';
 import { RecipeFormData, SavedRecipe, LoadingState, AuthProfile } from './types';
-import { generateRecipe, generateImageForRecipe } from './services/geminiService';
+import { generateRecipe, generateImageForRecipe } from './services/contentEngine';
 import { LANGUAGES, COOKING_TIMES, DISH_TYPES, RECIPE_GENERATION_MESSAGES, IMAGE_GENERATION_MESSAGES } from './constants';
 import { connectWallet, recordRecipeOnchain, fetchOnchainCookbook, resolveBasename, fetchMembershipPrice, checkLifetimeMembership, purchaseLifetimeMembership, DEFAULT_MEMBERSHIP_PRICE_WEI } from './services/baseRegistry';
 import { clearPersistedToken, fetchAuthenticatedProfile, isMetaMaskAvailable, linkWalletToGoogleAccount, persistAuthToken, requestNonce, retrievePersistedToken, signMessageWithWallet, verifySignature, logout as logoutSession } from './services/authService';
 import type { User } from 'firebase/auth';
-import { firebaseSignOut, isFirebaseReady, signInWithFirebaseCustomToken, signInWithGooglePopup, subscribeToFirebaseAuth } from './services/firebaseClient';
+import { logout, isReady, loginCustomToken, loginWithGoogle, subscribeAuth } from './services/authAdapter';
 import { preloadGoogleIdentity, revokeGoogleIdentityToken, signInWithGoogleIdentity, type GoogleIdentityProfile } from './services/googleIdentity';
 
 const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed' | 'Neutral' | 'Unknown' => {
@@ -28,7 +28,7 @@ const detectScript = (text: string): 'Latin' | 'Devanagari' | 'Bengali' | 'Mixed
   if (hasLatin) return 'Latin';
   if (hasDevanagari) return 'Devanagari';
   if (hasBengali) return 'Bengali';
-  
+
   // If we reach here, it means cleanedText is not empty but contains none of the scripts we check for.
   // This indicates an unsupported, non-neutral script.
   return 'Unknown';
@@ -61,6 +61,7 @@ const SOUNDS: Record<string, HTMLAudioElement> = Object.entries(SOUND_SOURCES)
   }, {} as Record<string, HTMLAudioElement>);
 
 const shortenAddress = (address: Address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+const GOOGLE_STORAGE_KEY = 'fractalGoogleIdentity';
 
 
 const App: React.FC = () => {
@@ -106,13 +107,14 @@ const App: React.FC = () => {
     setLinkedGoogleId(null);
     setGoogleIdentityProfile(null);
     clearPersistedToken();
+    localStorage.removeItem(GOOGLE_STORAGE_KEY);
   }, []);
 
   const detectProviderAvailability = React.useCallback(() => {
     setIsMetamaskDetected(isMetaMaskAvailable());
   }, []);
 
-    // Helper: extract link payload from Firebase or Google Identity profile
+  // Helper: extract link payload from Firebase or Google Identity profile
   const buildLinkPayload = React.useCallback(
     (
       firebaseProfile?: User,
@@ -143,7 +145,7 @@ const App: React.FC = () => {
   // Helper: handle Firebase custom token after account link
   const handleFirebaseCustomToken = React.useCallback(async (token: string): Promise<void> => {
     try {
-      await signInWithFirebaseCustomToken(token);
+      await loginCustomToken(token);
       setGoogleAuthStatus('GOOGLE ACCOUNT LINKED WITH WALLET');
     } catch (firebaseError) {
       console.error('Failed to activate Firebase custom token', firebaseError);
@@ -154,7 +156,7 @@ const App: React.FC = () => {
   // Helper: activate Firebase for wallet sign-in
   const activateFirebaseForWallet = React.useCallback(async (token: string): Promise<void> => {
     try {
-      await signInWithFirebaseCustomToken(token);
+      await loginCustomToken(token);
       setGoogleAuthStatus('WALLET SIGNED IN WITH FIREBASE');
     } catch (firebaseError) {
       console.error('Failed to activate Firebase session for wallet login', firebaseError);
@@ -270,7 +272,7 @@ const App: React.FC = () => {
       }
 
       await loadAuthProfile(verification.token, normalizedAddress, verification.linkedGoogleId);
-      
+
       // Auto-link Google if available and not already linked
       if (firebaseUser && !verification.linkedGoogleId) {
         await linkGoogleAccountToWallet({ firebaseUser, tokenOverride: verification.token });
@@ -348,7 +350,7 @@ const App: React.FC = () => {
   const [isWalletBusy, setIsWalletBusy] = React.useState(false);
 
   React.useEffect(() => {
-    const unsubscribe = subscribeToFirebaseAuth((user) => {
+    const unsubscribe = subscribeAuth((user) => {
       setFirebaseUser(user);
     });
     return () => {
@@ -364,8 +366,8 @@ const App: React.FC = () => {
     detectProviderAvailability();
     const globalWindow =
       typeof globalThis === 'object' &&
-      'window' in globalThis &&
-      globalThis.window
+        'window' in globalThis &&
+        globalThis.window
         ? (globalThis.window as Window)
         : undefined;
 
@@ -377,7 +379,7 @@ const App: React.FC = () => {
     const handleEthereumInitialized = () => detectProviderAvailability();
     globalWindow.addEventListener('focus', handleFocus);
     globalWindow.addEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
-  const timer = globalThis.setTimeout(() => detectProviderAvailability(), 1500);
+    const timer = globalThis.setTimeout(() => detectProviderAvailability(), 1500);
 
     return () => {
       globalWindow.removeEventListener('focus', handleFocus);
@@ -404,6 +406,21 @@ const App: React.FC = () => {
         clearAuthState();
       });
   }, [clearAuthState]);
+
+  React.useEffect(() => {
+    const storedIdentity = localStorage.getItem(GOOGLE_STORAGE_KEY);
+    if (storedIdentity) {
+      try {
+        const identity = JSON.parse(storedIdentity) as GoogleIdentityProfile;
+        setGoogleIdentityProfile(identity);
+        const descriptor = identity.email ?? identity.displayName ?? identity.googleId;
+        setGoogleAuthStatus(`GOOGLE SESSION RESTORED: ${descriptor}`.toUpperCase());
+      } catch (e) {
+        console.warn('Failed to parse stored Google identity', e);
+        localStorage.removeItem(GOOGLE_STORAGE_KEY);
+      }
+    }
+  }, []);
 
   React.useEffect(() => {
     if (!authStatus) {
@@ -446,17 +463,17 @@ const App: React.FC = () => {
       const storedRaw = JSON.parse(localStorage.getItem('fractalRecipes') || '[]') as unknown;
       const normalizedRecipes: SavedRecipe[] = Array.isArray(storedRaw)
         ? (storedRaw as unknown[]).map((entry: unknown) => {
-            const typedEntry = entry as Partial<SavedRecipe>;
-            return {
-              recipe: typedEntry.recipe || { dishName: '', description: '', timeNeeded: '', estimatedCost: '', difficulty: '', servings: '', ingredients: [], instructions: [] },
-              imageUrl: typedEntry.imageUrl || '',
-              source: typedEntry.source ?? 'local',
-              metadataUri: typedEntry.metadataUri,
-              txHash: typedEntry.txHash,
-              creator: typedEntry.creator,
-              createdAt: typedEntry.createdAt,
-            };
-          })
+          const typedEntry = entry as Partial<SavedRecipe>;
+          return {
+            recipe: typedEntry.recipe || { dishName: '', description: '', timeNeeded: '', estimatedCost: '', difficulty: '', servings: '', ingredients: [], instructions: [] },
+            imageUrl: typedEntry.imageUrl || '',
+            source: typedEntry.source ?? 'local',
+            metadataUri: typedEntry.metadataUri,
+            txHash: typedEntry.txHash,
+            creator: typedEntry.creator,
+            createdAt: typedEntry.createdAt,
+          };
+        })
         : [];
       setSavedRecipes(normalizedRecipes);
     } catch (e: unknown) {
@@ -584,7 +601,7 @@ const App: React.FC = () => {
       on: (event: string, handler: (...args: unknown[]) => void) => void;
       removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
     }
-    
+
     const getEthereumProvider = (): EthereumProvider | undefined => {
       const win = typeof globalThis === 'object' && 'window' in globalThis ? (globalThis.window as Window & { ethereum?: EthereumProvider }) : undefined;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -646,7 +663,7 @@ const App: React.FC = () => {
       console.warn(`Sound with id "${soundId}" not found.`);
       return;
     }
-    
+
     // By setting currentTime to 0, we can replay the sound even if it's already playing.
     audio.currentTime = 0;
     audio.play().catch((err: unknown) => {
@@ -685,15 +702,15 @@ const App: React.FC = () => {
   const handleGoogleAuthToggle = React.useCallback(async () => {
     playSound();
 
-    if (isFirebaseReady()) {
+    if (isReady()) {
       try {
         if (firebaseUser) {
-          await firebaseSignOut();
+          await logout();
           setGoogleAuthStatus('GOOGLE SIGNED OUT');
           return;
         }
 
-        const credential = await signInWithGooglePopup();
+        const credential = await loginWithGoogle();
         const descriptor = credential.user.email ?? credential.user.displayName ?? credential.user.uid;
         setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
         if (authToken) {
@@ -711,12 +728,14 @@ const App: React.FC = () => {
       if (googleIdentityProfile) {
         await revokeGoogleIdentityToken(googleIdentityProfile.accessToken);
         setGoogleIdentityProfile(null);
+        localStorage.removeItem(GOOGLE_STORAGE_KEY);
         setGoogleAuthStatus('GOOGLE SIGNED OUT');
         return;
       }
 
       const identity = await signInWithGoogleIdentity();
       setGoogleIdentityProfile(identity);
+      localStorage.setItem(GOOGLE_STORAGE_KEY, JSON.stringify(identity));
       const descriptor = identity.email ?? identity.displayName ?? identity.googleId;
       setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
       if (authToken) {
@@ -737,10 +756,10 @@ const App: React.FC = () => {
       return;
     }
 
-    if (isFirebaseReady()) {
+    if (isReady()) {
       try {
         if (!firebaseUser) {
-          const credential = await signInWithGooglePopup();
+          const credential = await loginWithGoogle();
           const descriptor = credential.user.email ?? credential.user.displayName ?? credential.user.uid;
           setGoogleAuthStatus(`GOOGLE SIGNED IN AS ${descriptor}`.toUpperCase());
           await linkGoogleAccountToWallet({ firebaseUser: credential.user });
@@ -806,37 +825,37 @@ const App: React.FC = () => {
   const handleAddIngredient = (ingredient: string) => {
     const selectedScript = LANGUAGE_TO_SCRIPT[formData.language];
     const detectedScript = detectScript(ingredient);
-    
+
     // Allow neutral inputs (e.g., "100%") to pass validation.
     if (detectedScript === 'Neutral') {
       // The ingredient will be added at the end of the function.
-    } 
+    }
     // If a script is detected, it MUST match the selected language's script.
     // Explicitly block 'Mixed' or 'Unknown' scripts to ensure prompt clarity.
     else if (detectedScript !== selectedScript) {
-        let warningMessage: string;
-        if (detectedScript === 'Mixed') {
-            warningMessage = 'MIXED SCRIPT DETECTED! Please use a single language.';
-        } else if (detectedScript === 'Unknown') {
-            warningMessage = `UNSUPPORTED CHARS! Please use ${formData.language}.`;
-        } else {
-            // e.g., "Devanagari script detected. Please use English."
-            warningMessage = `${detectedScript} script detected. System is set to ${formData.language}.`;
-        }
-        
-        setLanguageWarning(warningMessage);
-        setTimeout(() => setLanguageWarning(''), 5000);
-        playSound();
-        return; // Block adding the ingredient.
+      let warningMessage: string;
+      if (detectedScript === 'Mixed') {
+        warningMessage = 'MIXED SCRIPT DETECTED! Please use a single language.';
+      } else if (detectedScript === 'Unknown') {
+        warningMessage = `UNSUPPORTED CHARS! Please use ${formData.language}.`;
+      } else {
+        // e.g., "Devanagari script detected. Please use English."
+        warningMessage = `${detectedScript} script detected. System is set to ${formData.language}.`;
+      }
+
+      setLanguageWarning(warningMessage);
+      setTimeout(() => setLanguageWarning(''), 5000);
+      playSound();
+      return; // Block adding the ingredient.
     }
-    
+
     // If all checks passed, clear any previous warning and add the ingredient.
     setLanguageWarning('');
     setFormData(prev => ({ ...prev, ingredients: [...prev.ingredients, ingredient] }));
   };
-  
+
   const handleDeleteIngredient = (index: number) => {
-    setFormData(prev => ({...prev, ingredients: prev.ingredients.filter((_, i) => i !== index)}));
+    setFormData(prev => ({ ...prev, ingredients: prev.ingredients.filter((_, i) => i !== index) }));
   };
 
   const handleGenerateRecipe = async () => {
@@ -874,7 +893,7 @@ const App: React.FC = () => {
 
     try {
       const recipe = await generateRecipe(formData);
-      
+
       // Add a transition step for better user feedback
       setLoadingState('transition');
       await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
@@ -891,9 +910,9 @@ const App: React.FC = () => {
         const txHash = await recordRecipeOnchain(activeAddress, resultPayload);
         setLastTxHash(txHash);
         setOnchainStatus('RECIPE ANCHORED ON BASE SEPOLIA');
-        } catch (error_) {
-          console.error('Failed to record recipe onchain', error_);
-          const message = error_ instanceof Error ? error_.message : 'Failed to record recipe onchain.';
+      } catch (error_) {
+        console.error('Failed to record recipe onchain', error_);
+        const message = error_ instanceof Error ? error_.message : 'Failed to record recipe onchain.';
         setOnchainError(message);
         setTimeout(() => setOnchainError(null), 6000);
         setOnchainStatus(null);
@@ -908,7 +927,7 @@ const App: React.FC = () => {
       setLoadingState('idle');
     }
   };
-  
+
   React.useEffect(() => {
     if (loadingState === 'idle') return;
 
@@ -918,13 +937,13 @@ const App: React.FC = () => {
       return;
     }
 
-    const messages = loadingState === 'recipe' 
-      ? RECIPE_GENERATION_MESSAGES 
+    const messages = loadingState === 'recipe'
+      ? RECIPE_GENERATION_MESSAGES
       : IMAGE_GENERATION_MESSAGES;
-    
+
     let currentMessageIndex = 0;
     setLoadingMessage(messages[0]);
-    
+
     const messageInterval = globalThis.setInterval?.(() => {
       currentMessageIndex = (currentMessageIndex + 1) % messages.length;
       setLoadingMessage(messages[currentMessageIndex]);
@@ -1017,26 +1036,26 @@ const App: React.FC = () => {
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative text-center">
       <div className="absolute inset-0 bg-black/70 z-0"></div>
-       <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
+      <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
         <button onClick={() => { playSound(); setShowSavedModal(true); }} className="arcade-button-small">COOKBOOK</button>
         <button
-            onClick={handleWalletButtonClick}
+          onClick={handleWalletButtonClick}
           className="arcade-button-small"
           disabled={isWalletBusy}
         >
           {walletAddress ? (walletName ?? shortenAddress(walletAddress)) : 'CONNECT WALLET'}
         </button>
-          <button
-            onClick={handleGoogleAuthToggle}
-            className="arcade-button-small"
-          >
-            {firebaseUser ? 'SIGN OUT GOOGLE' : 'SIGN IN GOOGLE'}
+        <button
+          onClick={handleGoogleAuthToggle}
+          className="arcade-button-small"
+        >
+          {firebaseUser ? 'SIGN OUT GOOGLE' : 'SIGN IN GOOGLE'}
+        </button>
+        {authToken && !linkedGoogleId && (
+          <button onClick={handleLinkGoogleAccount} className="arcade-button-small">
+            LINK GOOGLE ACCOUNT
           </button>
-          {authToken && !linkedGoogleId && (
-            <button onClick={handleLinkGoogleAccount} className="arcade-button-small">
-              LINK GOOGLE ACCOUNT
-            </button>
-          )}
+        )}
         {lastTxHash && (
           <a
             href={`https://sepolia.basescan.org/tx/${lastTxHash}`}
@@ -1047,63 +1066,63 @@ const App: React.FC = () => {
             VIEW TX
           </a>
         )}
-          {!isMetamaskDetected && (
-            <a
-              href="https://metamask.io/download/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pixel-font-small text-xs text-yellow-300 underline text-right max-w-[200px] leading-tight"
-            >
-              INSTALL METAMASK TO AUTHENTICATE
-            </a>
-          )}
-          {authStatus && (
-            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
-              {authStatus}
-            </span>
-          )}
-          {googleAuthStatus && (
-            <span className="pixel-font-small text-xs text-blue-300 text-right max-w-[200px] leading-tight">
-              {googleAuthStatus}
-            </span>
-          )}
-          {firebaseUser && (
-            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
-              GOOGLE USER: {(firebaseUser.email ?? firebaseUser.displayName ?? firebaseUser.uid).toUpperCase()}
-            </span>
-          )}
-          {!firebaseUser && googleIdentityProfile && (
-            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
-              GOOGLE USER: {(googleIdentityProfile.email ?? googleIdentityProfile.displayName ?? googleIdentityProfile.googleId).toUpperCase()}
-            </span>
-          )}
-          {linkedGoogleId && (
-            <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
-              GOOGLE LINKED: {linkedGoogleId}
-            </span>
-          )}
+        {!isMetamaskDetected && (
+          <a
+            href="https://metamask.io/download/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pixel-font-small text-xs text-yellow-300 underline text-right max-w-[200px] leading-tight"
+          >
+            INSTALL METAMASK TO AUTHENTICATE
+          </a>
+        )}
+        {authStatus && (
+          <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+            {authStatus}
+          </span>
+        )}
+        {googleAuthStatus && (
+          <span className="pixel-font-small text-xs text-blue-300 text-right max-w-[200px] leading-tight">
+            {googleAuthStatus}
+          </span>
+        )}
+        {firebaseUser && (
+          <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+            GOOGLE USER: {(firebaseUser.email ?? firebaseUser.displayName ?? firebaseUser.uid).toUpperCase()}
+          </span>
+        )}
+        {!firebaseUser && googleIdentityProfile && (
+          <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+            GOOGLE USER: {(googleIdentityProfile.email ?? googleIdentityProfile.displayName ?? googleIdentityProfile.googleId).toUpperCase()}
+          </span>
+        )}
+        {linkedGoogleId && (
+          <span className="pixel-font-small text-xs text-green-300 text-right max-w-[200px] leading-tight">
+            GOOGLE LINKED: {linkedGoogleId}
+          </span>
+        )}
         {onchainError && (
           <span className="pixel-font-small text-xs text-red-400 text-right max-w-[200px] leading-tight">
             {onchainError}
           </span>
         )}
       </div>
-       <div className="absolute top-4 left-4 z-30 flex flex-col items-start gap-4">
+      <div className="absolute top-4 left-4 z-30 flex flex-col items-start gap-4">
         <button
           type="button"
           onClick={handleToggleRotation}
           className={`arcade-toggle-switch ${isRandomRotation ? 'toggled' : ''}`}
         >
-           <span className="pixel-font-small text-xs">RANDOMIZER</span>
-           <div className="switch-track">
-              <div className="switch-handle"></div>
-           </div>
-  </button>
+          <span className="pixel-font-small text-xs">RANDOMIZER</span>
+          <div className="switch-track">
+            <div className="switch-handle"></div>
+          </div>
+        </button>
         <div>
           <label htmlFor="language-select" className="pixel-font-small text-xs text-green-400 block mb-1 text-left">LANGUAGE</label>
-          <select 
+          <select
             id="language-select"
-            value={formData.language} 
+            value={formData.language}
             onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
               playSound();
               const nextLanguage = event.target.value as (typeof LANGUAGES)[number];
@@ -1155,9 +1174,9 @@ const App: React.FC = () => {
           <p className="pixel-font-small text-green-400 mt-2">EXPLORE INFINITE CULINARY BRANCHES</p>
         </header>
 
-  <main className="flex justify-center items-center relative h-[50vh]">
+        <main className="flex justify-center items-center relative h-[50vh]">
           <div className="cube-container">
-            <FractalCube 
+            <FractalCube
               formData={formData}
               setFormData={setFormData}
               onAddIngredient={handleAddIngredient}
@@ -1168,15 +1187,15 @@ const App: React.FC = () => {
             />
           </div>
         </main>
-        
+
         <footer className="text-center mt-8 relative z-20">
-       <div className={`transition-opacity duration-300 ${isGenerating ? 'opacity-50' : 'opacity-100'} ${error ? 'has-error' : ''}`}>
-         <button
-           onClick={() => { playSound('generate-sound'); void handleGenerateRecipe(); }}
-           disabled={isGenerating}
-           className={`arcade-button ${isGenerating ? 'loading' : ''}`}
-             >
-          {isGenerating ? 'GENERATING...' : 'SYNTHESIZE RECIPE'}
+          <div className={`transition-opacity duration-300 ${isGenerating ? 'opacity-50' : 'opacity-100'} ${error ? 'has-error' : ''}`}>
+            <button
+              onClick={() => { playSound('generate-sound'); void handleGenerateRecipe(); }}
+              disabled={isGenerating}
+              className={`arcade-button ${isGenerating ? 'loading' : ''}`}
+            >
+              {isGenerating ? 'GENERATING...' : 'SYNTHESIZE RECIPE'}
             </button>
           </div>
           {onchainStatus && (
@@ -1196,9 +1215,9 @@ const App: React.FC = () => {
               <span className="loading-message-text">{loadingMessage}</span>
               {loadingState !== 'transition' && (
                 <span className="loading-ellipsis ml-1">
-                   <span>.</span>
-                   <span>.</span>
-                   <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
+                  <span>.</span>
                 </span>
               )}
             </div>

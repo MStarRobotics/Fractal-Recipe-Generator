@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ConfirmationResult } from 'firebase/auth';
-import { ensurePhoneRecaptcha, signInWithPhone, confirmPhoneCode } from '../../services/firebaseClient';
+import { initRecaptcha, sendSms, verifySms } from '../../services/authAdapter';
 
 /**
  * Example component demonstrating Firebase Phone Authentication.
@@ -25,13 +25,14 @@ export function PhoneAuthExample() {
 
     try {
       // Create reCAPTCHA verifier (visible widget for better UX)
-      const verifier = ensurePhoneRecaptcha('recaptcha-container', 'normal');
-      
+      // Note: The service helper manages the verifier instance internally
+      initRecaptcha('recaptcha-container');
+
       setStatus('Requesting SMS code...');
-      
+
       // Request SMS code
-      const confirmationResult = await signInWithPhone(phoneNumber, verifier);
-      
+      const confirmationResult = await sendSms(phoneNumber, 'recaptcha-container');
+
       setConfirmation(confirmationResult);
       setStatus('SMS code sent! Check your phone.');
     } catch (err) {
@@ -50,7 +51,7 @@ export function PhoneAuthExample() {
     setStatus('Verifying code...');
 
     try {
-      const result = await confirmPhoneCode(confirmation, verificationCode);
+      const result = await verifySms(confirmation, verificationCode);
       setStatus(`Signed in as ${result.user.phoneNumber}`);
       // Handle successful sign-in (e.g., redirect, update UI state)
     } catch (err) {
@@ -85,7 +86,7 @@ export function PhoneAuthExample() {
           <div id="recaptcha-container" className="flex justify-center"></div>
 
           <button
-            onClick={handleSendCode}
+            onClick={() => void handleSendCode()}
             disabled={!phoneNumber}
             className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
           >
@@ -109,7 +110,7 @@ export function PhoneAuthExample() {
           </div>
 
           <button
-            onClick={handleVerifyCode}
+            onClick={() => void handleVerifyCode()}
             disabled={verificationCode.length !== 6}
             className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
           >
